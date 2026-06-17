@@ -5,19 +5,20 @@ import {
   countRepTransition,
   calculateBattleDamage,
   calculateDistanceKm,
-  updateRunTracker,
+  createStepTracker,
+  updateStepTracker,
   landmarksToPoseMetrics,
 } from './trainingLogic.js';
 
 describe('hero progression logic', () => {
   it('calculates daily mission progress as a percentage capped at 100', () => {
-    const progress = calculateMissionProgress({ pushups: 120, situps: 50, squats: 75, runKm: 2.5 });
-    expect(progress).toEqual({ pushups: 100, situps: 50, squats: 75, runKm: 25, total: 63 });
+    const progress = calculateMissionProgress({ pushups: 120, situps: 50, squats: 75, steps: 2500 });
+    expect(progress).toEqual({ pushups: 100, situps: 50, squats: 75, steps: 25, total: 63 });
   });
 
   it('starts missions from zero for a fresh workout session', () => {
-    const progress = calculateMissionProgress({ pushups: 0, situps: 0, squats: 0, runKm: 0 });
-    expect(progress).toEqual({ pushups: 0, situps: 0, squats: 0, runKm: 0, total: 0 });
+    const progress = calculateMissionProgress({ pushups: 0, situps: 0, squats: 0, steps: 0 });
+    expect(progress).toEqual({ pushups: 0, situps: 0, squats: 0, steps: 0, total: 0 });
   });
 
   it('maps XP to hero ranks with clear next-rank targets', () => {
@@ -103,30 +104,40 @@ describe('rep transition logic', () => {
   });
 });
 
-describe('10km GPS run tracking', () => {
-  it('calculates distance between GPS points in kilometers', () => {
+describe('10k step tracking', () => {
+  it('tracks 10k steps as the fourth daily mission', () => {
+    const progress = calculateMissionProgress({ pushups: 0, situps: 0, squats: 0, steps: 1000 });
+    expect(progress.steps).toBe(10);
+    expect(progress.total).toBe(3);
+  });
+
+  it('counts walking-like motion peaks while rejecting flat samples', () => {
+    let tracker = createStepTracker();
+    tracker = updateStepTracker(tracker, { timestamp: 0, accelerationIncludingGravity: { x: 0, y: 0, z: 9.8 } });
+    tracker = updateStepTracker(tracker, { timestamp: 320, accelerationIncludingGravity: { x: 0, y: 0, z: 11.7 } });
+    expect(tracker.steps).toBe(1);
+
+    tracker = updateStepTracker(tracker, { timestamp: 470, accelerationIncludingGravity: { x: 0, y: 0, z: 11.8 } });
+    expect(tracker.steps).toBe(1);
+
+    tracker = updateStepTracker(tracker, { timestamp: 650, accelerationIncludingGravity: { x: 0, y: 0, z: 9.8 } });
+    tracker = updateStepTracker(tracker, { timestamp: 980, accelerationIncludingGravity: { x: 0, y: 0, z: 11.8 } });
+    expect(tracker.steps).toBe(2);
+  });
+
+  it('caps step progress at the 10k daily target', () => {
+    const tracker = { ...createStepTracker(9999), smoothMagnitude: 9.8, lastStepAt: 0 };
+    const updated = updateStepTracker(tracker, { timestamp: 500, accelerationIncludingGravity: { x: 0, y: 0, z: 12.2 } });
+    expect(updated.steps).toBe(10000);
+    expect(updated.progress).toBe(100);
+  });
+
+  it('still exposes GPS distance helper for future distance estimates', () => {
     const km = calculateDistanceKm(
       { latitude: 45.4215, longitude: -75.6972 },
       { latitude: 45.4315, longitude: -75.6972 },
     );
     expect(km).toBeGreaterThan(1.10);
     expect(km).toBeLessThan(1.13);
-  });
-
-  it('ignores inaccurate or unrealistic GPS jumps', () => {
-    const tracker = { distanceKm: 0, lastPoint: { latitude: 45, longitude: -75, timestamp: 0 } };
-    const inaccurate = updateRunTracker(tracker, { latitude: 45.01, longitude: -75, accuracy: 250, timestamp: 60_000 });
-    expect(inaccurate.distanceKm).toBe(0);
-
-    const jump = updateRunTracker(tracker, { latitude: 46, longitude: -75, accuracy: 12, timestamp: 1_000 });
-    expect(jump.distanceKm).toBe(0);
-  });
-
-  it('accumulates valid GPS movement toward 10km', () => {
-    let tracker = { distanceKm: 0, lastPoint: null };
-    tracker = updateRunTracker(tracker, { latitude: 45, longitude: -75, accuracy: 10, timestamp: 0 });
-    tracker = updateRunTracker(tracker, { latitude: 45.009, longitude: -75, accuracy: 8, timestamp: 8 * 60_000 });
-    expect(tracker.distanceKm).toBeGreaterThan(0.99);
-    expect(tracker.progress).toBe(10);
   });
 });

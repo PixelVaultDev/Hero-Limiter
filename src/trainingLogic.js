@@ -2,7 +2,7 @@ export const DAILY_TARGETS = {
   pushups: 100,
   situps: 100,
   squats: 100,
-  runKm: 10,
+  steps: 10000,
 };
 
 export const RANKS = [
@@ -17,18 +17,22 @@ export const RANKS = [
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const pct = (value, target) => Math.round(clamp((value / target) * 100, 0, 100));
 const STABLE_REP_FRAMES = 3;
+const STEP_THRESHOLD = 1.05;
+const STEP_RESET_THRESHOLD = 0.22;
+const MIN_STEP_INTERVAL_MS = 280;
+const MAX_STEP_INTERVAL_MS = 2200;
 
 export function calculateMissionProgress(values) {
   const pushups = pct(values.pushups ?? 0, DAILY_TARGETS.pushups);
   const situps = pct(values.situps ?? 0, DAILY_TARGETS.situps);
   const squats = pct(values.squats ?? 0, DAILY_TARGETS.squats);
-  const runKm = pct(values.runKm ?? 0, DAILY_TARGETS.runKm);
+  const steps = pct(values.steps ?? 0, DAILY_TARGETS.steps);
   return {
     pushups,
     situps,
     squats,
-    runKm,
-    total: Math.round((pushups + situps + squats + runKm) / 4),
+    steps,
+    total: Math.round((pushups + situps + squats + steps) / 4),
   };
 }
 
@@ -215,6 +219,58 @@ export function landmarksToPoseMetrics(landmarks = [], exercise = 'all') {
   return { elbowAngle, kneeAngle, torsoAngle, hipBelowKnee, hipDrop, visible, poseConfidence: confidence };
 }
 
+export function createStepTracker(initialSteps = 0) {
+  return {
+    steps: clamp(Math.round(initialSteps), 0, DAILY_TARGETS.steps),
+    smoothMagnitude: null,
+    lastStepAt: 0,
+    armed: true,
+    progress: pct(initialSteps, DAILY_TARGETS.steps),
+    quality: 'step-ready',
+  };
+}
+
+export function updateStepTracker(tracker, sample) {
+  const safeTracker = tracker ?? createStepTracker();
+  const acceleration = sample?.accelerationIncludingGravity ?? sample?.acceleration;
+  const timestamp = sample?.timestamp ?? Date.now();
+
+  if (!acceleration || !Number.isFinite(acceleration.x) || !Number.isFinite(acceleration.y) || !Number.isFinite(acceleration.z)) {
+    return { ...safeTracker, quality: 'step-no-motion' };
+  }
+
+  const magnitude = Math.hypot(acceleration.x, acceleration.y, acceleration.z);
+  const previousSmooth = safeTracker.smoothMagnitude ?? magnitude;
+  const smoothMagnitude = previousSmooth * 0.86 + magnitude * 0.14;
+  const pulse = magnitude - smoothMagnitude;
+  const elapsed = timestamp - (safeTracker.lastStepAt || 0);
+  const canCount = safeTracker.armed && pulse >= STEP_THRESHOLD && elapsed >= MIN_STEP_INTERVAL_MS && elapsed <= MAX_STEP_INTERVAL_MS;
+  const shouldRearm = pulse <= STEP_RESET_THRESHOLD;
+
+  if (canCount) {
+    const steps = Math.min(DAILY_TARGETS.steps, (safeTracker.steps ?? 0) + 1);
+    return {
+      ...safeTracker,
+      steps,
+      smoothMagnitude,
+      lastStepAt: timestamp,
+      armed: false,
+      progress: pct(steps, DAILY_TARGETS.steps),
+      quality: 'step-counted',
+      pulse,
+    };
+  }
+
+  return {
+    ...safeTracker,
+    smoothMagnitude,
+    armed: shouldRearm ? true : safeTracker.armed,
+    progress: pct(safeTracker.steps ?? 0, DAILY_TARGETS.steps),
+    quality: elapsed > MAX_STEP_INTERVAL_MS ? 'step-waiting' : 'step-tracking',
+    pulse,
+  };
+}
+
 export function calculateDistanceKm(a, b) {
   if (!a || !b) return 0;
   const radiusKm = 6371;
@@ -224,23 +280,4 @@ export function calculateDistanceKm(a, b) {
   const lat2 = (b.latitude * Math.PI) / 180;
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
   return 2 * radiusKm * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
-}
-
-export function updateRunTracker(tracker, point) {
-  const safeTracker = tracker ?? { distanceKm: 0, lastPoint: null };
-  if (!point || point.accuracy > 80) {
-    return { ...safeTracker, progress: pct(safeTracker.distanceKm ?? 0, DAILY_TARGETS.runKm), quality: 'gps-weak' };
-  }
-  if (!safeTracker.lastPoint) {
-    return { ...safeTracker, lastPoint: point, progress: pct(safeTracker.distanceKm ?? 0, DAILY_TARGETS.runKm), quality: 'gps-ready' };
-  }
-
-  const segmentKm = calculateDistanceKm(safeTracker.lastPoint, point);
-  const seconds = Math.max(1, ((point.timestamp ?? Date.now()) - (safeTracker.lastPoint.timestamp ?? Date.now())) / 1000);
-  const speedKmh = segmentKm / (seconds / 3600);
-  if (segmentKm > 0.25 && speedKmh > 28) {
-    return { ...safeTracker, progress: pct(safeTracker.distanceKm ?? 0, DAILY_TARGETS.runKm), quality: 'gps-jump-filtered' };
-  }
-  const distanceKm = Math.min(DAILY_TARGETS.runKm, +(safeTracker.distanceKm + segmentKm).toFixed(4));
-  return { distanceKm, lastPoint: point, progress: pct(distanceKm, DAILY_TARGETS.runKm), quality: 'gps-tracking' };
 }

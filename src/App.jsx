@@ -5,12 +5,12 @@ import {
   Camera,
   CheckCircle2,
   Flame,
+  Footprints,
   Gauge,
   MapPin,
   Pause,
   Play,
   RefreshCw,
-  Route,
   ScanLine,
   ShieldCheck,
   Sparkles,
@@ -25,22 +25,23 @@ import {
   DAILY_TARGETS,
   calculateMissionProgress,
   countRepTransition,
+  createStepTracker,
   landmarksToPoseMetrics,
-  updateRunTracker,
+  updateStepTracker,
 } from './trainingLogic.js';
 
 const initialStats = {
   pushups: 0,
   squats: 0,
   situps: 0,
-  runKm: 0,
+  steps: 0,
 };
 
 const exercises = [
   { key: 'pushups', tracker: 'pushup', label: 'Push ups', short: 'Push', target: 100, unit: 'reps', icon: Zap },
   { key: 'squats', tracker: 'squat', label: 'Body squats', short: 'Squat', target: 100, unit: 'reps', icon: ShieldCheck },
   { key: 'situps', tracker: 'situp', label: 'Sit ups', short: 'Sit', target: 100, unit: 'reps', icon: Activity },
-  { key: 'runKm', tracker: 'run', label: 'Walk / run', short: 'Run', target: 10, unit: 'km', icon: Route },
+  { key: 'steps', tracker: 'steps', label: '10k steps', short: 'Steps', target: 10000, unit: 'steps', icon: Footprints },
 ];
 
 function App() {
@@ -55,7 +56,7 @@ function App() {
 
   function addRep(tracker) {
     const mission = exercises.find((item) => item.tracker === tracker);
-    if (!mission || mission.key === 'runKm') return;
+    if (!mission || mission.key === 'steps') return;
     setStats((current) => ({
       ...current,
       [mission.key]: Math.min(mission.target, current[mission.key] + 1),
@@ -63,10 +64,10 @@ function App() {
     setPulseKey((value) => value + 1);
   }
 
-  function setRunDistance(distanceKm) {
+  function setStepCount(steps) {
     setStats((current) => ({
       ...current,
-      runKm: Math.min(DAILY_TARGETS.runKm, +distanceKm.toFixed(2)),
+      steps: Math.min(DAILY_TARGETS.steps, Math.max(0, Math.round(steps))),
     }));
   }
 
@@ -83,7 +84,7 @@ function App() {
           <div className="brand-block">
             <span className="brand-pill"><Sparkles size={14} /> by LifeOfJohnHa</span>
             <h1>Hero Protocol</h1>
-            <p>Interactive daily training OS for 100 push ups, 100 squats, 100 sit ups, and a 10km walk/run.</p>
+            <p>Interactive daily training OS for 100 push ups, 100 squats, 100 sit ups, and 10k steps.</p>
           </div>
           <button className="ghost-button" onClick={resetAll} type="button">
             <RefreshCw size={18} /> Reset
@@ -123,7 +124,7 @@ function App() {
             <p>{protocolLevel.copy}</p>
             <div className="stat-chips">
               <span><Flame size={14} /> {totalReps} reps</span>
-              <span><Route size={14} /> {stats.runKm.toFixed(2)} km</span>
+              <span><Footprints size={14} /> {stats.steps.toLocaleString()} steps</span>
               <span><Trophy size={14} /> Rank {protocolLevel.rank}</span>
             </div>
           </div>
@@ -137,7 +138,7 @@ function App() {
           activeMission={activeMission}
           stats={stats}
           onRep={addRep}
-          onRunDistance={setRunDistance}
+          onStepCount={setStepCount}
         />
       </section>
     </main>
@@ -148,7 +149,7 @@ function MissionList({ stats, progress, activeExercise, setActiveExercise }) {
   return (
     <section className="mission-list" aria-label="Mission checklist">
       {exercises.map((exercise, index) => {
-        const value = exercise.key === 'runKm' ? stats.runKm.toFixed(2) : stats[exercise.key];
+        const value = exercise.key === 'steps' ? stats.steps.toLocaleString() : stats[exercise.key];
         const done = progress[exercise.key] >= 100;
         const Icon = exercise.icon;
         return (
@@ -167,7 +168,7 @@ function MissionList({ stats, progress, activeExercise, setActiveExercise }) {
               <span>{exercise.label}</span>
               <i><b style={{ width: `${progress[exercise.key]}%` }} /></i>
             </div>
-            <strong>{value}<small> / {exercise.target}{exercise.key === 'runKm' ? ' km' : ''}</small></strong>
+            <strong>{value}<small> / {exercise.target.toLocaleString()}{exercise.key === 'steps' ? ' steps' : ''}</small></strong>
           </motion.button>
         );
       })}
@@ -175,28 +176,28 @@ function MissionList({ stats, progress, activeExercise, setActiveExercise }) {
   );
 }
 
-function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, onRep, onRunDistance }) {
+function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, onRep, onStepCount }) {
   const videoRef = useRef(null);
   const detectorRef = useRef(null);
   const streamRef = useRef(null);
   const rafRef = useRef(null);
-  const watchRef = useRef(null);
+  const motionListenerRef = useRef(null);
   const repStateRef = useRef({ phase: 'top', reps: 0, quality: 'ready' });
-  const runTrackerRef = useRef({ distanceKm: 0, lastPoint: null });
+  const stepTrackerRef = useRef(createStepTracker());
   const voiceEnabledRef = useRef(false);
   const [cameraStatus, setCameraStatus] = useState('Camera off');
   const [poseStatus, setPoseStatus] = useState('Choose an exercise and start camera.');
-  const [runStatus, setRunStatus] = useState('GPS off');
+  const [stepStatus, setStepStatus] = useState('Step tracker off');
   const [voiceStatus, setVoiceStatus] = useState('Voice count off');
   const [isCameraOn, setIsCameraOn] = useState(false);
-  const [isGpsOn, setIsGpsOn] = useState(false);
+  const [isStepTrackingOn, setIsStepTrackingOn] = useState(false);
   const [cameraFacing, setCameraFacing] = useState('user');
   const [voiceEnabled, setVoiceEnabled] = useState(false);
 
-  const activeValue = activeMission.key === 'runKm' ? `${stats.runKm.toFixed(2)} km` : `${stats[activeMission.key]} reps`;
+  const activeValue = activeMission.key === 'steps' ? `${stats.steps.toLocaleString()} steps` : `${stats[activeMission.key]} reps`;
 
   async function startCamera() {
-    if (activeExercise === 'run') {
+    if (activeExercise === 'steps') {
       setPoseStatus('Pick push ups, squats, or sit ups for camera tracking.');
       return;
     }
@@ -276,7 +277,7 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
   }
 
   function speakRepCount(count) {
-    if (!voiceEnabledRef.current || activeExercise === 'run') return;
+    if (!voiceEnabledRef.current || activeExercise === 'steps') return;
     speakText(String(count));
     setVoiceStatus(`Counted ${count} out loud`);
   }
@@ -308,46 +309,59 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
     rafRef.current = requestAnimationFrame(detectLoop);
   }
 
-  function startRun() {
-    if (!navigator.geolocation) {
-      setRunStatus('GPS not supported on this device.');
+  async function startStepTracking() {
+    setActiveExercise('steps');
+
+    if (!('DeviceMotionEvent' in window)) {
+      setStepStatus('Motion step tracking is not supported on this browser.');
       return;
     }
-    setActiveExercise('run');
-    runTrackerRef.current = { distanceKm: 0, lastPoint: null };
-    onRunDistance(0);
-    setRunStatus('GPS starting…');
-    setIsGpsOn(true);
-    watchRef.current = navigator.geolocation.watchPosition(
-      (pos) => {
-        const point = {
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-          accuracy: pos.coords.accuracy,
-          timestamp: pos.timestamp,
-        };
-        runTrackerRef.current = updateRunTracker(runTrackerRef.current, point);
-        onRunDistance(runTrackerRef.current.distanceKm);
-        setRunStatus(`${runTrackerRef.current.distanceKm.toFixed(2)} / 10.00 km • ${readableGpsQuality(runTrackerRef.current.quality)}`);
-      },
-      (error) => {
-        setRunStatus(error.message || 'Location permission blocked.');
-        setIsGpsOn(false);
-      },
-      { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 },
-    );
+
+    try {
+      if (typeof DeviceMotionEvent.requestPermission === 'function') {
+        const permission = await DeviceMotionEvent.requestPermission();
+        if (permission !== 'granted') {
+          setStepStatus('Motion permission blocked. Use manual add for now.');
+          return;
+        }
+      }
+
+      stopStepTracking(false);
+      stepTrackerRef.current = createStepTracker(stats.steps);
+      const onMotion = (event) => {
+        stepTrackerRef.current = updateStepTracker(stepTrackerRef.current, {
+          accelerationIncludingGravity: event.accelerationIncludingGravity,
+          acceleration: event.acceleration,
+          timestamp: event.timeStamp || Date.now(),
+        });
+        const nextSteps = stepTrackerRef.current.steps;
+        onStepCount(nextSteps);
+        setStepStatus(`${nextSteps.toLocaleString()} / 10,000 steps • ${readableStepQuality(stepTrackerRef.current.quality)}`);
+      };
+      motionListenerRef.current = onMotion;
+      window.addEventListener('devicemotion', onMotion);
+      setStepStatus('Step tracker active. Keep your phone in your hand or pocket.');
+      setIsStepTrackingOn(true);
+    } catch (error) {
+      setStepStatus(error?.message || 'Could not start motion step tracking.');
+      setIsStepTrackingOn(false);
+    }
   }
 
-  function stopRun() {
-    if (watchRef.current) navigator.geolocation.clearWatch(watchRef.current);
-    watchRef.current = null;
-    setRunStatus('GPS paused');
-    setIsGpsOn(false);
+  function stopStepTracking(updateStatus = true) {
+    if (motionListenerRef.current) {
+      window.removeEventListener('devicemotion', motionListenerRef.current);
+    }
+    motionListenerRef.current = null;
+    if (updateStatus) setStepStatus('Step tracker paused');
+    setIsStepTrackingOn(false);
   }
 
   function manualAdd() {
-    if (activeExercise === 'run') {
-      onRunDistance(Math.min(10, stats.runKm + 0.1));
+    if (activeExercise === 'steps') {
+      const nextSteps = Math.min(DAILY_TARGETS.steps, stats.steps + 100);
+      onStepCount(nextSteps);
+      setStepStatus(`${nextSteps.toLocaleString()} / 10,000 steps • manual add`);
       return;
     }
     const nextCount = Math.min(activeMission.target, stats[activeMission.key] + 1);
@@ -358,11 +372,11 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
 
   useEffect(() => () => {
     stopCamera();
-    stopRun();
+    stopStepTracking(false);
   }, []);
 
   useEffect(() => {
-    if (activeExercise !== 'run') {
+    if (activeExercise !== 'steps') {
       const mission = exercises.find((item) => item.tracker === activeExercise);
       repStateRef.current = { phase: 'top', reps: stats[mission.key] ?? 0, quality: 'ready' };
     }
@@ -419,29 +433,29 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
         <div className="camera-label"><Camera size={16} /> {cameraStatus}</div>
       </div>
 
-      <p className="tracker-status">{activeExercise === 'run' ? runStatus : poseStatus}</p>
+      <p className="tracker-status">{activeExercise === 'steps' ? stepStatus : poseStatus}</p>
 
       <div className="action-grid">
-        <button className="primary-action" onClick={startCamera} type="button" disabled={activeExercise === 'run'}>
+        <button className="primary-action" onClick={startCamera} type="button" disabled={activeExercise === 'steps'}>
           <Camera size={18} /> {isCameraOn ? 'Tracking' : 'Start camera'}
         </button>
         <button onClick={stopCamera} type="button" disabled={!isCameraOn}>
           <VideoOff size={18} /> Stop camera
         </button>
-        <button className="primary-action run" onClick={startRun} type="button">
-          <Route size={18} /> {isGpsOn ? 'GPS active' : 'Start GPS'}
+        <button className="primary-action run" onClick={startStepTracking} type="button">
+          <Footprints size={18} /> {isStepTrackingOn ? 'Steps active' : 'Start steps'}
         </button>
-        <button onClick={stopRun} type="button" disabled={!isGpsOn}>
-          <Pause size={18} /> Pause GPS
+        <button onClick={stopStepTracking} type="button" disabled={!isStepTrackingOn}>
+          <Pause size={18} /> Pause steps
         </button>
       </div>
 
       <button className="manual-button" onClick={manualAdd} type="button">
-        <Play size={18} /> Manual add {activeExercise === 'run' ? '+0.1 km' : '+1 rep'}
+        <Play size={18} /> Manual add {activeExercise === 'steps' ? '+100 steps' : '+1 rep'}
       </button>
 
       <div className="hint-strip">
-        <Timer size={16} /> Camera and GPS require HTTPS. Test on the GitHub Pages link from your phone.
+        <Timer size={16} /> Camera and motion steps require HTTPS. Keep the page open while walking.
       </div>
       <div className="hint-strip muted">
         <MapPin size={16} /> Side view helps push ups/sit ups. Rear/wider helps squats.
@@ -453,9 +467,9 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
 function getProtocolLevel(total) {
   if (total >= 100) return { title: 'Protocol complete', rank: 'S', copy: 'Daily mission cleared. Recovery, hydrate, and come back tomorrow.' };
   if (total >= 75) return { title: 'Breakthrough phase', rank: 'A', copy: 'You are close. Finish the last block and lock the protocol.' };
-  if (total >= 40) return { title: 'Power rising', rank: 'B', copy: 'Momentum is building. Keep stacking clean reps and distance.' };
+  if (total >= 40) return { title: 'Power rising', rank: 'B', copy: 'Momentum is building. Keep stacking clean reps and steps.' };
   if (total > 0) return { title: 'Activation phase', rank: 'C', copy: 'The system is online. Every rep pushes the meter forward.' };
-  return { title: 'Protocol ready', rank: 'D', copy: 'Start from zero. Pick a mission and activate camera or GPS tracking.' };
+  return { title: 'Protocol ready', rank: 'D', copy: 'Start from zero. Pick a mission and activate camera or step tracking.' };
 }
 
 function formatPoseStatus(exercise, state) {
@@ -480,11 +494,11 @@ function labelForExercise(exercise) {
   return 'Rep';
 }
 
-function readableGpsQuality(quality) {
-  if (quality === 'gps-ready') return 'ready';
-  if (quality === 'gps-weak') return 'weak signal';
-  if (quality === 'gps-jump-filtered') return 'jump ignored';
-  return 'tracking';
+function readableStepQuality(quality) {
+  if (quality === 'step-counted') return 'step counted';
+  if (quality === 'step-no-motion') return 'waiting for phone motion';
+  if (quality === 'step-waiting') return 'walking signal ready';
+  return 'tracking motion';
 }
 
 export default App;

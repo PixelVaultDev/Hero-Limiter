@@ -1,17 +1,16 @@
-# Hero Limiter
+# Hero Protocol by LifeOfJohnHa
 
-A cinematic anime-inspired fitness app prototype where workouts become hero missions, monster battles, combo streaks, XP, and rank progression.
+A cinematic anime-inspired fitness app prototype where workouts become daily hero protocols with clean rep tracking, voice count, step tracking, XP, and rank progression.
 
 ## MVP in this repo
 
-- Premium mobile-first landing/dashboard UI
-- Animated phone mockup with original hero avatar artwork
-- Daily mission tracker starts from zero: pushups, situps, squats, 10km run
-- Monster battle health, combo meter, Serious Meter, hit animations
-- Manual rep counting MVP button
-- Browser camera pushup/squat rep counter using MediaPipe Pose Landmarker
-- GPS 10km run tracker using the browser Geolocation API
-- Tested rank, mission progress, rep-transition, pose-metric, battle-damage, and GPS-distance logic
+- Premium mobile-first dashboard UI
+- Daily mission tracker starts from zero: pushups, situps, squats, 10k steps
+- Browser camera pushup/squat/situp rep counter using MediaPipe Pose Landmarker
+- Voice count toggle for reps using browser speech synthesis
+- Motion-based 10k step tracker using browser `devicemotion` events
+- Manual fallback buttons for reps and steps
+- Tested rank, mission progress, rep-transition, pose-metric, battle-damage, GPS-distance helper, and step-counting logic
 
 ## Why not use official One Punch Man branding?
 
@@ -26,12 +25,8 @@ npm test
 npm run build
 ```
 
-## Future camera counting direction
+## Tracking notes
 
-Use MediaPipe Pose landmarks:
-
-- Pushups: shoulder, elbow, wrist, hip alignment; count top → bottom → top transitions.
-- Squats: hip, knee, ankle depth; count standing → depth → standing transitions.
-- Bad form creates weak hits instead of counting fake progress.
-
-The tested `src/trainingLogic.js` functions are the first layer for this behavior.
+- Camera tracking needs HTTPS and works best when the needed joints are visible.
+- Step tracking uses phone motion sensors, so it needs a supported mobile browser, permission on iOS, and the page open while walking.
+- Manual fallback is kept for poor lighting, blocked sensors, or desktop testing.
