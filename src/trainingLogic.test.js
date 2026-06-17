@@ -132,6 +132,13 @@ describe('10k step tracking', () => {
     expect(tracker.steps).toBe(2);
   });
 
+  it('counts the first walking peak even after the tracker has been open for several seconds', () => {
+    let tracker = createStepTracker();
+    tracker = updateStepTracker(tracker, { timestamp: 5000, accelerationIncludingGravity: { x: 0, y: 0, z: 9.8 } });
+    tracker = updateStepTracker(tracker, { timestamp: 5380, accelerationIncludingGravity: { x: 0, y: 0, z: 12.2 } });
+    expect(tracker.steps).toBe(1);
+  });
+
   it('caps step progress at the 10k daily target', () => {
     const tracker = { ...createStepTracker(9999), smoothMagnitude: 9.8, lastStepAt: 0 };
     const updated = updateStepTracker(tracker, { timestamp: 500, accelerationIncludingGravity: { x: 0, y: 0, z: 12.2 } });

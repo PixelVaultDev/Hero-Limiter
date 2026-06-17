@@ -243,7 +243,7 @@ export function updateStepTracker(tracker, sample) {
   const previousSmooth = safeTracker.smoothMagnitude ?? magnitude;
   const smoothMagnitude = previousSmooth * 0.86 + magnitude * 0.14;
   const pulse = magnitude - smoothMagnitude;
-  const elapsed = timestamp - (safeTracker.lastStepAt || 0);
+  const elapsed = safeTracker.lastStepAt ? timestamp - safeTracker.lastStepAt : MIN_STEP_INTERVAL_MS;
   const canCount = safeTracker.armed && pulse >= STEP_THRESHOLD && elapsed >= MIN_STEP_INTERVAL_MS && elapsed <= MAX_STEP_INTERVAL_MS;
   const shouldRearm = pulse <= STEP_RESET_THRESHOLD;
 
