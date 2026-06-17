@@ -193,8 +193,19 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
   const [isStepTrackingOn, setIsStepTrackingOn] = useState(false);
   const [cameraFacing, setCameraFacing] = useState('user');
   const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [counterPulseKey, setCounterPulseKey] = useState(0);
 
+  const activeRawCount = stats[activeMission.key];
   const activeValue = activeMission.key === 'steps' ? `${stats.steps.toLocaleString()} steps` : `${stats[activeMission.key]} reps`;
+  const activeProgress = Math.min(100, Math.round((activeRawCount / activeMission.target) * 100));
+  const kineticUnit = activeMission.key === 'steps' ? 'steps' : 'reps';
+  const kineticHit = activeMission.key === 'steps' ? '+100' : '+1';
+  const kineticLabel = activeMission.key === 'steps' ? 'Step engine' : 'Rep counter';
+  const comboLabel = activeRawCount === 0
+    ? 'Tap to charge'
+    : activeMission.key === 'steps'
+      ? `${activeProgress}% route energy`
+      : `${Math.min(activeRawCount, 20)} hit combo`;
 
   async function startCamera() {
     if (activeExercise === 'steps') {
@@ -266,6 +277,10 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
     }
   }
 
+  function triggerCounterPulse() {
+    setCounterPulseKey((value) => value + 1);
+  }
+
   function speakText(text) {
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
@@ -299,6 +314,7 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
       repStateRef.current = next;
       setPoseStatus(formatPoseStatus(activeExercise, next));
       if (next.reps > previousReps) {
+        triggerCounterPulse();
         onRep(activeExercise);
         speakRepCount(next.reps);
       }
@@ -358,6 +374,7 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
   }
 
   function manualAdd() {
+    triggerCounterPulse();
     if (activeExercise === 'steps') {
       const nextSteps = Math.min(DAILY_TARGETS.steps, stats.steps + 100);
       onStepCount(nextSteps);
@@ -404,6 +421,52 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
           </button>
         ))}
       </div>
+
+      <motion.button
+        className="kinetic-counter"
+        type="button"
+        onClick={manualAdd}
+        whileTap={{ scale: 0.975, rotateX: 4 }}
+        animate={{ boxShadow: counterPulseKey ? ['0 0 0 rgba(255,216,77,0)', '0 0 54px rgba(255,216,77,.26)', '0 0 0 rgba(255,216,77,0)'] : undefined }}
+        transition={{ duration: 0.5 }}
+        style={{ '--counter-progress': `${activeProgress}%` }}
+        aria-label={`Manual add ${activeMission.key === 'steps' ? '100 steps' : 'one rep'}`}
+      >
+        <span className="counter-aura" aria-hidden="true" />
+        <span className="counter-topline">
+          <span>{kineticLabel}</span>
+          <b>{comboLabel}</b>
+        </span>
+        <span className="counter-mainline">
+          <AnimatePresence mode="popLayout" initial={false}>
+            <motion.strong
+              key={`${activeExercise}-${activeRawCount}`}
+              initial={{ y: 26, opacity: 0, scale: 0.78, rotate: -3 }}
+              animate={{ y: 0, opacity: 1, scale: [1.18, 1], rotate: 0 }}
+              exit={{ y: -20, opacity: 0, scale: 0.86, rotate: 3 }}
+              transition={{ type: 'spring', stiffness: 430, damping: 22 }}
+            >
+              {activeRawCount.toLocaleString()}
+            </motion.strong>
+          </AnimatePresence>
+          <em>{kineticUnit}</em>
+        </span>
+        <span className="counter-progress-track"><i /></span>
+        <AnimatePresence>
+          {counterPulseKey > 0 && (
+            <motion.span
+              key={counterPulseKey}
+              className="counter-hit"
+              initial={{ opacity: 0, y: 16, scale: 0.65, rotate: -8 }}
+              animate={{ opacity: [0, 1, 1, 0], y: [16, -10, -28, -44], scale: [0.65, 1.15, 1, 0.9], rotate: [-8, 4, -2, 0] }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.78, ease: 'easeOut' }}
+            >
+              {kineticHit}
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </motion.button>
 
       <div className="camera-tools">
         <label>
