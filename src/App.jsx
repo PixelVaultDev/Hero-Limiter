@@ -9,7 +9,6 @@ import {
   Gauge,
   MapPin,
   Pause,
-  Play,
   RefreshCw,
   ScanLine,
   ShieldCheck,
@@ -199,10 +198,10 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
   const activeValue = activeMission.key === 'steps' ? `${stats.steps.toLocaleString()} steps` : `${stats[activeMission.key]} reps`;
   const activeProgress = Math.min(100, Math.round((activeRawCount / activeMission.target) * 100));
   const kineticUnit = activeMission.key === 'steps' ? 'steps' : 'reps';
-  const kineticHit = activeMission.key === 'steps' ? '+100' : '+1';
+  const kineticHit = '+1';
   const kineticLabel = activeMission.key === 'steps' ? 'Step engine' : 'Rep counter';
   const comboLabel = activeRawCount === 0
-    ? 'Tap to charge'
+    ? 'Ready to track'
     : activeMission.key === 'steps'
       ? `${activeProgress}% route energy`
       : `${Math.min(activeRawCount, 20)} hit combo`;
@@ -337,7 +336,7 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
       if (typeof DeviceMotionEvent.requestPermission === 'function') {
         const permission = await DeviceMotionEvent.requestPermission();
         if (permission !== 'granted') {
-          setStepStatus('Motion permission blocked. Use manual add for now.');
+          setStepStatus('Motion permission blocked. Steps can only be counted with phone motion.');
           return;
         }
       }
@@ -373,19 +372,6 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
     setIsStepTrackingOn(false);
   }
 
-  function manualAdd() {
-    triggerCounterPulse();
-    if (activeExercise === 'steps') {
-      const nextSteps = Math.min(DAILY_TARGETS.steps, stats.steps + 100);
-      onStepCount(nextSteps);
-      setStepStatus(`${nextSteps.toLocaleString()} / 10,000 steps • manual add`);
-      return;
-    }
-    const nextCount = Math.min(activeMission.target, stats[activeMission.key] + 1);
-    onRep(activeExercise);
-    speakRepCount(nextCount);
-    repStateRef.current = { ...repStateRef.current, reps: nextCount };
-  }
 
   useEffect(() => () => {
     stopCamera();
@@ -422,15 +408,39 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
         ))}
       </div>
 
-      <motion.button
+      <div className="action-grid">
+        <button className="primary-action" onClick={startCamera} type="button" disabled={activeExercise === 'steps'}>
+          <Camera size={18} /> {isCameraOn ? 'Tracking' : 'Start camera'}
+        </button>
+        <button onClick={stopCamera} type="button" disabled={!isCameraOn}>
+          <VideoOff size={18} /> Stop camera
+        </button>
+        <button className="primary-action run" onClick={startStepTracking} type="button">
+          <Footprints size={18} /> {isStepTrackingOn ? 'Steps active' : 'Start steps'}
+        </button>
+        <button onClick={stopStepTracking} type="button" disabled={!isStepTrackingOn}>
+          <Pause size={18} /> Pause steps
+        </button>
+      </div>
+
+      <div className={`camera-stage ${isCameraOn ? 'is-live' : ''}`}>
+        <video ref={videoRef} muted playsInline />
+        <div className="scan-overlay"><ScanLine size={24} /></div>
+        <div className="corner-mark top-left" />
+        <div className="corner-mark top-right" />
+        <div className="corner-mark bottom-left" />
+        <div className="corner-mark bottom-right" />
+        <div className="camera-label"><Camera size={16} /> {cameraStatus}</div>
+      </div>
+
+      <motion.div
         className="kinetic-counter"
-        type="button"
-        onClick={manualAdd}
-        whileTap={{ scale: 0.975, rotateX: 4 }}
+        role="status"
+        aria-live="polite"
         animate={{ boxShadow: counterPulseKey ? ['0 0 0 rgba(255,216,77,0)', '0 0 54px rgba(255,216,77,.26)', '0 0 0 rgba(255,216,77,0)'] : undefined }}
         transition={{ duration: 0.5 }}
         style={{ '--counter-progress': `${activeProgress}%` }}
-        aria-label={`Manual add ${activeMission.key === 'steps' ? '100 steps' : 'one rep'}`}
+        aria-label={`${activeMission.label} count: ${activeRawCount.toLocaleString()} ${kineticUnit}`}
       >
         <span className="counter-aura" aria-hidden="true" />
         <span className="counter-topline">
@@ -466,7 +476,9 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
             </motion.span>
           )}
         </AnimatePresence>
-      </motion.button>
+      </motion.div>
+
+      <p className="tracker-status">{activeExercise === 'steps' ? stepStatus : poseStatus}</p>
 
       <div className="camera-tools">
         <label>
@@ -485,37 +497,6 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
         </button>
         <span>{voiceStatus}</span>
       </div>
-
-      <div className={`camera-stage ${isCameraOn ? 'is-live' : ''}`}>
-        <video ref={videoRef} muted playsInline />
-        <div className="scan-overlay"><ScanLine size={24} /></div>
-        <div className="corner-mark top-left" />
-        <div className="corner-mark top-right" />
-        <div className="corner-mark bottom-left" />
-        <div className="corner-mark bottom-right" />
-        <div className="camera-label"><Camera size={16} /> {cameraStatus}</div>
-      </div>
-
-      <p className="tracker-status">{activeExercise === 'steps' ? stepStatus : poseStatus}</p>
-
-      <div className="action-grid">
-        <button className="primary-action" onClick={startCamera} type="button" disabled={activeExercise === 'steps'}>
-          <Camera size={18} /> {isCameraOn ? 'Tracking' : 'Start camera'}
-        </button>
-        <button onClick={stopCamera} type="button" disabled={!isCameraOn}>
-          <VideoOff size={18} /> Stop camera
-        </button>
-        <button className="primary-action run" onClick={startStepTracking} type="button">
-          <Footprints size={18} /> {isStepTrackingOn ? 'Steps active' : 'Start steps'}
-        </button>
-        <button onClick={stopStepTracking} type="button" disabled={!isStepTrackingOn}>
-          <Pause size={18} /> Pause steps
-        </button>
-      </div>
-
-      <button className="manual-button" onClick={manualAdd} type="button">
-        <Play size={18} /> Manual add {activeExercise === 'steps' ? '+100 steps' : '+1 rep'}
-      </button>
 
       <div className="hint-strip">
         <Timer size={16} /> Camera and motion steps require HTTPS. Keep the page open while walking.
