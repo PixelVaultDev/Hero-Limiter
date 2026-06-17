@@ -437,6 +437,41 @@ h1 {
 .camera-tools select:focus-visible { border-color: rgba(255,216,77,.62); box-shadow: 0 0 0 4px rgba(255,216,77,.1); }
 .camera-tools select:disabled { opacity: .55; }
 
+.voice-panel {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px;
+  margin: -2px 0 12px;
+}
+
+.voice-toggle {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 13px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255,255,255,.075);
+  color: var(--soft);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 950;
+  transition: transform .18s ease, border-color .18s ease, background .18s ease;
+}
+
+.voice-toggle.active {
+  border-color: rgba(255,216,77,.48);
+  background: rgba(255,216,77,.13);
+  color: var(--accent);
+  box-shadow: 0 0 24px rgba(255,216,77,.08);
+}
+
+.voice-toggle:hover { transform: translateY(-1px); }
+.voice-panel span { color: var(--muted); font-size: 12px; line-height: 1.35; font-weight: 800; }
+
 .camera-stage {
   position: relative;
   height: 252px;
@@ -623,5 +658,7 @@ h1 {
   .mission-row strong { grid-column: 2; text-align: left; }
   .mode-tabs { gap: 6px; }
   .mode-tabs button { font-size: 12px; }
+  .voice-panel { grid-template-columns: 1fr; }
+  .voice-toggle { width: 100%; }
   .action-grid { grid-template-columns: 1fr; }
 }

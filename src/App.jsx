@@ -17,6 +17,8 @@ import {
   Timer,
   Trophy,
   VideoOff,
+  Volume2,
+  VolumeX,
   Zap,
 } from 'lucide-react';
 import {
@@ -181,12 +183,15 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
   const watchRef = useRef(null);
   const repStateRef = useRef({ phase: 'top', reps: 0, quality: 'ready' });
   const runTrackerRef = useRef({ distanceKm: 0, lastPoint: null });
+  const voiceEnabledRef = useRef(false);
   const [cameraStatus, setCameraStatus] = useState('Camera off');
   const [poseStatus, setPoseStatus] = useState('Choose an exercise and start camera.');
   const [runStatus, setRunStatus] = useState('GPS off');
+  const [voiceStatus, setVoiceStatus] = useState('Voice count off');
   const [isCameraOn, setIsCameraOn] = useState(false);
   const [isGpsOn, setIsGpsOn] = useState(false);
   const [cameraFacing, setCameraFacing] = useState('user');
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
 
   const activeValue = activeMission.key === 'runKm' ? `${stats.runKm.toFixed(2)} km` : `${stats[activeMission.key]} reps`;
 
@@ -241,6 +246,41 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
     setIsCameraOn(false);
   }
 
+  function toggleVoice() {
+    if (!('speechSynthesis' in window)) {
+      voiceEnabledRef.current = false;
+      setVoiceEnabled(false);
+      setVoiceStatus('Voice not supported on this browser');
+      return;
+    }
+    const next = !voiceEnabledRef.current;
+    voiceEnabledRef.current = next;
+    setVoiceEnabled(next);
+    if (next) {
+      speakText('Voice count on');
+      setVoiceStatus('Voice count on');
+    } else {
+      window.speechSynthesis.cancel();
+      setVoiceStatus('Voice count off');
+    }
+  }
+
+  function speakText(text) {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.08;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function speakRepCount(count) {
+    if (!voiceEnabledRef.current || activeExercise === 'run') return;
+    speakText(String(count));
+    setVoiceStatus(`Counted ${count} out loud`);
+  }
+
   function detectLoop() {
     const detector = detectorRef.current;
     const video = videoRef.current;
@@ -257,7 +297,10 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
       const next = countRepTransition(activeExercise, repStateRef.current, metrics);
       repStateRef.current = next;
       setPoseStatus(formatPoseStatus(activeExercise, next));
-      if (next.reps > previousReps) onRep(activeExercise);
+      if (next.reps > previousReps) {
+        onRep(activeExercise);
+        speakRepCount(next.reps);
+      }
     } else {
       setPoseStatus('No body detected. Step back into frame.');
     }
@@ -307,8 +350,10 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
       onRunDistance(Math.min(10, stats.runKm + 0.1));
       return;
     }
+    const nextCount = Math.min(activeMission.target, stats[activeMission.key] + 1);
     onRep(activeExercise);
-    repStateRef.current = { ...repStateRef.current, reps: repStateRef.current.reps + 1 };
+    speakRepCount(nextCount);
+    repStateRef.current = { ...repStateRef.current, reps: nextCount };
   }
 
   useEffect(() => () => {
@@ -354,6 +399,14 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
             <option value="environment">Rear / wider view</option>
           </select>
         </label>
+      </div>
+
+      <div className="voice-panel">
+        <button className={voiceEnabled ? 'voice-toggle active' : 'voice-toggle'} onClick={toggleVoice} type="button">
+          {voiceEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+          {voiceEnabled ? 'Voice count on' : 'Voice count off'}
+        </button>
+        <span>{voiceStatus}</span>
       </div>
 
       <div className={`camera-stage ${isCameraOn ? 'is-live' : ''}`}>
