@@ -135,6 +135,7 @@ h1 {
 
 .ghost-button,
 .action-grid button,
+.camera-action-row button,
 .mode-tabs button,
 .mission-row {
   border: 0;
@@ -646,6 +647,46 @@ h1 {
 .camera-stage.is-live { border-color: rgba(78,226,141,.38); box-shadow: 0 0 34px rgba(78,226,141,.12), inset 0 0 44px rgba(0,0,0,.28); }
 .camera-stage video { width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1); background: #05060b; }
 
+.camera-action-row {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: 1.2fr .8fr;
+  gap: 9px;
+  padding: 8px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(5,6,10,.18), rgba(5,6,10,.74));
+  backdrop-filter: blur(13px);
+  box-shadow: 0 -18px 44px rgba(0,0,0,.2);
+}
+
+.camera-action-row button {
+  min-height: 54px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 17px;
+  background: rgba(255,255,255,.1);
+  color: var(--soft);
+  font-size: 13px;
+  font-weight: 950;
+  transition: transform .18s ease, filter .18s ease, background .18s ease;
+}
+
+.camera-action-row button:hover { transform: translateY(-1px); filter: brightness(1.08); }
+.camera-action-row button:active { transform: scale(.985); }
+.camera-action-row button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+.camera-action-row .primary-action {
+  background: linear-gradient(135deg, var(--accent), #ffb72c);
+  color: #141006;
+  box-shadow: 0 13px 30px rgba(255,216,77,.18);
+}
+
 .scan-overlay {
   position: absolute;
   inset: 0;
@@ -717,6 +758,8 @@ h1 {
   gap: 9px;
   margin-bottom: 12px;
 }
+
+.step-action-grid { margin-top: 12px; }
 
 .action-grid button {
   min-height: 50px;

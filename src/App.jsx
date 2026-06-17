@@ -408,21 +408,6 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
         ))}
       </div>
 
-      <div className="action-grid">
-        <button className="primary-action" onClick={startCamera} type="button" disabled={activeExercise === 'steps'}>
-          <Camera size={18} /> {isCameraOn ? 'Tracking' : 'Start camera'}
-        </button>
-        <button onClick={stopCamera} type="button" disabled={!isCameraOn}>
-          <VideoOff size={18} /> Stop camera
-        </button>
-        <button className="primary-action run" onClick={startStepTracking} type="button">
-          <Footprints size={18} /> {isStepTrackingOn ? 'Steps active' : 'Start steps'}
-        </button>
-        <button onClick={stopStepTracking} type="button" disabled={!isStepTrackingOn}>
-          <Pause size={18} /> Pause steps
-        </button>
-      </div>
-
       <div className={`camera-stage ${isCameraOn ? 'is-live' : ''}`}>
         <video ref={videoRef} muted playsInline />
         <div className="scan-overlay"><ScanLine size={24} /></div>
@@ -431,6 +416,23 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
         <div className="corner-mark bottom-left" />
         <div className="corner-mark bottom-right" />
         <div className="camera-label"><Camera size={16} /> {cameraStatus}</div>
+        <div className="camera-action-row" aria-label="Camera controls">
+          <button className="primary-action" onClick={startCamera} type="button" disabled={activeExercise === 'steps'}>
+            <Camera size={18} /> {isCameraOn ? 'Tracking' : 'Start camera'}
+          </button>
+          <button onClick={stopCamera} type="button" disabled={!isCameraOn}>
+            <VideoOff size={18} /> Pause camera
+          </button>
+        </div>
+      </div>
+
+      <div className="action-grid step-action-grid">
+        <button className="primary-action run" onClick={startStepTracking} type="button">
+          <Footprints size={18} /> {isStepTrackingOn ? 'Steps active' : 'Start steps'}
+        </button>
+        <button onClick={stopStepTracking} type="button" disabled={!isStepTrackingOn}>
+          <Pause size={18} /> Pause steps
+        </button>
       </div>
 
       <motion.div
