@@ -16,6 +16,7 @@ export const RANKS = [
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const pct = (value, target) => Math.round(clamp((value / target) * 100, 0, 100));
+const STABLE_REP_FRAMES = 3;
 
 export function calculateMissionProgress(values) {
   const pushups = pct(values.pushups ?? 0, DAILY_TARGETS.pushups);
@@ -48,11 +49,35 @@ export function getHeroRank(xp) {
 }
 
 export function countRepTransition(exercise, state, pose) {
-  if (pose?.visible === false) return { ...state, quality: 'not-visible' };
+  if (pose?.visible === false) return resetCandidate(state, 'not-visible');
+  if (pose?.poseConfidence < 0.55) return resetCandidate(state, 'low-confidence');
   if (exercise === 'pushup') return countPushup(state, pose);
   if (exercise === 'squat') return countSquat(state, pose);
   if (exercise === 'situp') return countSitup(state, pose);
   return { ...state, quality: 'unsupported' };
+}
+
+function resetCandidate(state, quality) {
+  return { ...state, candidate: null, candidateFrames: 0, quality };
+}
+
+function stableTransition(state, targetPhase, quality, { addRep = false, weakForm = false } = {}) {
+  const candidateFrames = state.candidate === targetPhase ? (state.candidateFrames ?? 0) + 1 : 1;
+  if (candidateFrames < STABLE_REP_FRAMES) {
+    return { ...state, candidate: targetPhase, candidateFrames, quality: quality === 'clean' ? 'stabilizing' : quality };
+  }
+
+  if (weakForm) {
+    return { phase: targetPhase, reps: state.reps, quality: 'weak-form', candidate: null, candidateFrames: 0 };
+  }
+
+  return {
+    phase: targetPhase,
+    reps: state.reps + (addRep ? 1 : 0),
+    quality,
+    candidate: null,
+    candidateFrames: 0,
+  };
 }
 
 function countPushup(state, pose) {
@@ -61,17 +86,17 @@ function countPushup(state, pose) {
   const weakForm = pose.hipDrop > 0.18;
 
   if (state.phase === 'top' && bottom) {
-    return { ...state, phase: 'bottom', quality: weakForm ? 'weak-form' : 'loaded' };
+    return stableTransition(state, 'bottom', weakForm ? 'weak-form' : 'loaded');
   }
 
   if (state.phase === 'bottom' && top) {
-    if (state.quality === 'weak-form' || weakForm) {
-      return { phase: 'top', reps: state.reps, quality: 'weak-form' };
-    }
-    return { phase: 'top', reps: state.reps + 1, quality: 'clean' };
+    return stableTransition(state, 'top', 'clean', {
+      addRep: true,
+      weakForm: state.quality === 'weak-form' || weakForm,
+    });
   }
 
-  return { ...state, quality: weakForm ? 'weak-form' : state.quality ?? 'tracking' };
+  return resetCandidate(state, weakForm ? 'weak-form' : state.quality ?? 'tracking');
 }
 
 function countSquat(state, pose) {
@@ -79,14 +104,14 @@ function countSquat(state, pose) {
   const top = pose.kneeAngle >= 160 && !pose.hipBelowKnee;
 
   if (state.phase === 'top' && bottom) {
-    return { ...state, phase: 'bottom', quality: 'loaded' };
+    return stableTransition(state, 'bottom', 'loaded');
   }
 
   if (state.phase === 'bottom' && top) {
-    return { phase: 'top', reps: state.reps + 1, quality: 'clean' };
+    return stableTransition(state, 'top', 'clean', { addRep: true });
   }
 
-  return { ...state, quality: state.quality ?? 'tracking' };
+  return resetCandidate(state, state.quality ?? 'tracking');
 }
 
 function countSitup(state, pose) {
@@ -94,14 +119,14 @@ function countSitup(state, pose) {
   const seatedUp = pose.torsoAngle <= 105;
 
   if (state.phase === 'top' && lyingBack) {
-    return { ...state, phase: 'bottom', quality: 'loaded' };
+    return stableTransition(state, 'bottom', 'loaded');
   }
 
   if (state.phase === 'bottom' && seatedUp) {
-    return { phase: 'top', reps: state.reps + 1, quality: 'clean' };
+    return stableTransition(state, 'top', 'clean', { addRep: true });
   }
 
-  return { ...state, quality: state.quality ?? 'tracking' };
+  return resetCandidate(state, state.quality ?? 'tracking');
 }
 
 export function calculateBattleDamage({ base = 10, combo = 0, quality = 'clean' }) {
@@ -142,13 +167,27 @@ function isVisible(point, threshold = 0.35) {
   return (point?.visibility ?? 1) > threshold;
 }
 
-function exerciseVisibility(exercise, points) {
+function exercisePoints(exercise, points) {
   const { shoulder, elbow, wrist, hip, knee, ankle } = points;
-  const allVisible = (requiredPoints) => requiredPoints.every((point) => isVisible(point));
-  if (exercise === 'pushup') return allVisible([shoulder, elbow, wrist, hip]);
-  if (exercise === 'situp') return allVisible([shoulder, hip, knee]);
-  if (exercise === 'squat') return allVisible([hip, knee, ankle]);
-  return allVisible([shoulder, elbow, wrist, hip, knee, ankle]);
+  if (exercise === 'pushup') return [shoulder, elbow, wrist, hip];
+  if (exercise === 'situp') return [shoulder, hip, knee];
+  if (exercise === 'squat') return [hip, knee, ankle];
+  return [shoulder, elbow, wrist, hip, knee, ankle];
+}
+
+function poseSpan(points) {
+  const xs = points.map((point) => point.x ?? 0);
+  const ys = points.map((point) => point.y ?? 0);
+  return Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+}
+
+function poseConfidence(points) {
+  return points.reduce((sum, point) => sum + (point.visibility ?? 1), 0) / points.length;
+}
+
+function exerciseVisibility(exercise, points) {
+  const requiredPoints = exercisePoints(exercise, points);
+  return requiredPoints.every((point) => isVisible(point, 0.5)) && poseSpan(requiredPoints) >= 0.12;
 }
 
 export function landmarksToPoseMetrics(landmarks = [], exercise = 'all') {
@@ -163,7 +202,9 @@ export function landmarksToPoseMetrics(landmarks = [], exercise = 'all') {
   const kneeMid = averagePoint(landmarks[25], landmarks[26]) ?? knee;
 
   const points = { shoulder, elbow, wrist, hip, knee, ankle };
+  const requiredPoints = exercisePoints(exercise, points);
   const visible = exerciseVisibility(exercise, points);
+  const confidence = poseConfidence(requiredPoints);
   const elbowAngle = angleBetween(shoulder, elbow, wrist);
   const kneeAngle = angleBetween(hip, knee, ankle);
   const torsoAngle = angleBetween(shoulderMid, hipMid, kneeMid);
@@ -171,7 +212,7 @@ export function landmarksToPoseMetrics(landmarks = [], exercise = 'all') {
   const torsoSlope = Math.abs((hipMid.y ?? hip.y) - (shoulderMid.y ?? shoulder.y));
   const hipDrop = Math.max(0, torsoSlope - 0.35);
 
-  return { elbowAngle, kneeAngle, torsoAngle, hipBelowKnee, hipDrop, visible };
+  return { elbowAngle, kneeAngle, torsoAngle, hipBelowKnee, hipDrop, visible, poseConfidence: confidence };
 }
 
 export function calculateDistanceKm(a, b) {

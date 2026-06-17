@@ -133,7 +133,7 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
   const [runStatus, setRunStatus] = useState('GPS off');
   const [isCameraOn, setIsCameraOn] = useState(false);
   const [isGpsOn, setIsGpsOn] = useState(false);
-  const [cameraFacing, setCameraFacing] = useState('environment');
+  const [cameraFacing, setCameraFacing] = useState('user');
 
   const activeValue = activeMission.key === 'runKm' ? `${stats.runKm.toFixed(2)} km` : `${stats[activeMission.key]} reps`;
 
@@ -297,8 +297,8 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
         <label>
           Camera
           <select value={cameraFacing} onChange={(event) => setCameraFacing(event.target.value)} disabled={isCameraOn}>
-            <option value="environment">Rear / wider view</option>
             <option value="user">Selfie camera</option>
+            <option value="environment">Rear / wider view</option>
           </select>
         </label>
       </div>

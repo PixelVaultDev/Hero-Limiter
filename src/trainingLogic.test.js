@@ -28,32 +28,39 @@ describe('hero progression logic', () => {
 });
 
 describe('rep transition logic', () => {
-  it('counts one pushup when movement completes top to bottom to top', () => {
+  it('counts one pushup only after stable top-bottom-top movement', () => {
     let state = { phase: 'top', reps: 0 };
-    state = countRepTransition('pushup', state, { elbowAngle: 72, hipDrop: 0.04 });
-    state = countRepTransition('pushup', state, { elbowAngle: 166, hipDrop: 0.03 });
-    expect(state).toEqual({ phase: 'top', reps: 1, quality: 'clean' });
+    state = countRepTransition('pushup', state, { elbowAngle: 72, hipDrop: 0.04, poseConfidence: 0.9 });
+    state = countRepTransition('pushup', state, { elbowAngle: 72, hipDrop: 0.04, poseConfidence: 0.9 });
+    expect(state.reps).toBe(0);
+    state = countRepTransition('pushup', state, { elbowAngle: 72, hipDrop: 0.04, poseConfidence: 0.9 });
+    expect(state.phase).toBe('bottom');
+    state = countRepTransition('pushup', state, { elbowAngle: 166, hipDrop: 0.03, poseConfidence: 0.9 });
+    state = countRepTransition('pushup', state, { elbowAngle: 166, hipDrop: 0.03, poseConfidence: 0.9 });
+    expect(state.reps).toBe(0);
+    state = countRepTransition('pushup', state, { elbowAngle: 166, hipDrop: 0.03, poseConfidence: 0.9 });
+    expect(state).toMatchObject({ phase: 'top', reps: 1, quality: 'clean' });
   });
 
   it('rejects a pushup with sagging hips as a weak rep', () => {
     let state = { phase: 'top', reps: 0 };
-    state = countRepTransition('pushup', state, { elbowAngle: 70, hipDrop: 0.24 });
-    state = countRepTransition('pushup', state, { elbowAngle: 165, hipDrop: 0.22 });
-    expect(state).toEqual({ phase: 'top', reps: 0, quality: 'weak-form' });
+    for (let i = 0; i < 3; i += 1) state = countRepTransition('pushup', state, { elbowAngle: 70, hipDrop: 0.24, poseConfidence: 0.9 });
+    for (let i = 0; i < 3; i += 1) state = countRepTransition('pushup', state, { elbowAngle: 165, hipDrop: 0.22, poseConfidence: 0.9 });
+    expect(state).toMatchObject({ phase: 'top', reps: 0, quality: 'weak-form' });
   });
 
   it('counts one squat when hips reach depth then return standing', () => {
     let state = { phase: 'top', reps: 4 };
-    state = countRepTransition('squat', state, { kneeAngle: 82, hipBelowKnee: true });
-    state = countRepTransition('squat', state, { kneeAngle: 171, hipBelowKnee: false });
-    expect(state).toEqual({ phase: 'top', reps: 5, quality: 'clean' });
+    for (let i = 0; i < 3; i += 1) state = countRepTransition('squat', state, { kneeAngle: 82, hipBelowKnee: true, poseConfidence: 0.9 });
+    for (let i = 0; i < 3; i += 1) state = countRepTransition('squat', state, { kneeAngle: 171, hipBelowKnee: false, poseConfidence: 0.9 });
+    expect(state).toMatchObject({ phase: 'top', reps: 5, quality: 'clean' });
   });
 
   it('counts one situp when user lies back then sits up', () => {
     let state = { phase: 'top', reps: 0 };
-    state = countRepTransition('situp', state, { torsoAngle: 152 });
-    state = countRepTransition('situp', state, { torsoAngle: 88 });
-    expect(state).toEqual({ phase: 'top', reps: 1, quality: 'clean' });
+    for (let i = 0; i < 3; i += 1) state = countRepTransition('situp', state, { torsoAngle: 152, poseConfidence: 0.9 });
+    for (let i = 0; i < 3; i += 1) state = countRepTransition('situp', state, { torsoAngle: 88, poseConfidence: 0.9 });
+    expect(state).toMatchObject({ phase: 'top', reps: 1, quality: 'clean' });
   });
 
   it('converts pose landmarks into pushup/squat/situp metrics', () => {
@@ -69,6 +76,13 @@ describe('rep transition logic', () => {
     expect(metrics.torsoAngle).toBeGreaterThan(150);
     expect(metrics.hipBelowKnee).toBe(false);
     expect(metrics.visible).toBe(true);
+  });
+
+  it('ignores a single noisy pushup-like frame', () => {
+    let state = { phase: 'top', reps: 0 };
+    state = countRepTransition('pushup', state, { elbowAngle: 72, hipDrop: 0.04, poseConfidence: 0.9 });
+    state = countRepTransition('pushup', state, { elbowAngle: 166, hipDrop: 0.03, poseConfidence: 0.9 });
+    expect(state.reps).toBe(0);
   });
 
   it('does not require feet to be visible for pushup tracking', () => {
