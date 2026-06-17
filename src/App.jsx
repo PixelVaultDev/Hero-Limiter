@@ -551,14 +551,14 @@ function getSetupGuide(exercise) {
   if (exercise === 'situp') {
     return {
       title: 'Side view for clean sit ups',
-      copy: 'Place the phone 6–8 feet away so your shoulders, hips, and knees stay in frame.',
-      chips: ['Side view', '6–8 feet away', 'Whole torso visible'],
+      copy: 'Use a side view so your shoulders, hips, and knees stay in frame.',
+      chips: ['Side view', 'Whole torso visible'],
     };
   }
   return {
     title: 'Side view for clean push ups',
-    copy: 'Place the phone 6–8 feet away. Keep shoulders, elbows, wrists, and hips inside the frame.',
-    chips: ['Side view', '6–8 feet away', 'Whole body line visible'],
+    copy: 'Use a side view. Keep shoulders, elbows, wrists, and hips inside the frame.',
+    chips: ['Side view', 'Whole body line visible'],
   };
 }
 
