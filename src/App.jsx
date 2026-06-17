@@ -1,29 +1,30 @@
 import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Activity,
-  Camera,
+  Bell,
+  Check,
+  ClipboardList,
+  Dumbbell,
   Flame,
-  Gauge,
-  Medal,
+  Home,
+  Lock,
+  MapPin,
+  Menu,
+  Package,
   Play,
   Shield,
-  Sparkles,
+  Skull,
   Swords,
-  Trophy,
+  User,
   Zap,
 } from 'lucide-react';
-import {
-  calculateBattleDamage,
-  calculateMissionProgress,
-  getHeroRank,
-} from './trainingLogic.js';
+import { calculateBattleDamage, calculateMissionProgress, getHeroRank } from './trainingLogic.js';
 
 const missions = [
-  { key: 'pushups', label: 'Pushups', target: 100, unit: 'reps', color: '#ffcf45' },
-  { key: 'situps', label: 'Situps', target: 100, unit: 'reps', color: '#ff6a3d' },
-  { key: 'squats', label: 'Squats', target: 100, unit: 'reps', color: '#ff366d' },
-  { key: 'runKm', label: 'Run', target: 10, unit: 'km', color: '#8f7cff' },
+  { key: 'pushups', label: 'Pushups', target: 100, valueLabel: '42 / 100', icon: 'pushup' },
+  { key: 'situps', label: 'Situps', target: 100, valueLabel: '35 / 100', icon: 'situp' },
+  { key: 'squats', label: 'Squats', target: 100, valueLabel: '60 / 100', icon: 'squat' },
+  { key: 'runKm', label: 'Run', target: 10, valueLabel: '2.4 / 10 km', icon: 'run' },
 ];
 
 const initialStats = {
@@ -31,13 +32,11 @@ const initialStats = {
   situps: 35,
   squats: 60,
   runKm: 2.4,
-  xp: 735,
-  combo: 18,
+  xp: 2450,
+  combo: 23,
   streak: 12,
   enemyHp: 38,
 };
-
-const cityZones = ['Dojo', 'Harbor', 'Metro', 'HQ', 'Ruins'];
 
 function App() {
   const [stats, setStats] = useState(initialStats);
@@ -45,8 +44,6 @@ function App() {
   const [hitBurst, setHitBurst] = useState(0);
   const progress = useMemo(() => calculateMissionProgress(stats), [stats]);
   const rank = useMemo(() => getHeroRank(stats.xp), [stats.xp]);
-  const active = missions.find((mission) => mission.key === activeMission);
-  const seriousMeter = Math.min(100, Math.round((stats.combo / 30) * 100));
 
   function addRep() {
     const damage = calculateBattleDamage({ base: 7, combo: stats.combo, quality: 'clean' });
@@ -65,197 +62,226 @@ function App() {
   }
 
   return (
-    <main className="app-shell">
-      <DecorativeBackground />
+    <main className="game-shell">
+      <div className="phone-canvas">
+        <TopStatus />
+        <HeroHeader />
+        <HeroProfile stats={stats} rank={rank} />
 
-      <nav className="nav-bar">
-        <div className="brand-lockup">
-          <span className="brand-mark"><Shield size={18} /></span>
-          <span>Hero Limiter</span>
-        </div>
-        <div className="nav-actions">
-          <span className="status-pill"><span className="live-dot" /> AI pose beta</span>
-          <button className="small-button">Join waitlist</button>
-        </div>
-      </nav>
+        <section className="mid-grid">
+          <DailyMissions missions={missions} stats={stats} progress={progress} activeMission={activeMission} setActiveMission={setActiveMission} />
+          <MonsterBattle stats={stats} hitBurst={hitBurst} resetBattle={resetBattle} />
+        </section>
 
-      <section className="hero-grid">
-        <motion.div
-          className="hero-copy"
-          initial={{ opacity: 0, y: 22 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7 }}
-        >
-          <div className="eyebrow"><Sparkles size={16} /> Anime fitness battle system</div>
-          <h1>Break your limiter one mission at a time.</h1>
-          <p>
-            A professional, game-like workout app where pushups, squats, situps, and runs become
-            animated battles, rank-ups, streaks, and form-tracked hero missions.
-          </p>
-          <div className="hero-actions">
-            <button className="primary-cta"><Play size={18} fill="currentColor" /> Start Mission</button>
-            <button className="secondary-cta"><Camera size={18} /> Try pose counter</button>
-          </div>
-        </motion.div>
-
-        <motion.div
-          className="phone-stage"
-          initial={{ opacity: 0, scale: 0.94, rotate: -1 }}
-          animate={{ opacity: 1, scale: 1, rotate: 0 }}
-          transition={{ duration: 0.85, delay: 0.1 }}
-        >
-          <PhoneMockup
-            stats={stats}
-            progress={progress}
-            rank={rank}
-            active={active}
-            activeMission={activeMission}
-            setActiveMission={setActiveMission}
-            addRep={addRep}
-            resetBattle={resetBattle}
-            seriousMeter={seriousMeter}
-            hitBurst={hitBurst}
-          />
-        </motion.div>
-      </section>
-
-      <section className="feature-strip">
-        <Feature icon={<Swords />} title="Monster battles" text="Every clean rep lands a hit. Bad form becomes a weak hit instead of fake progress." />
-        <Feature icon={<Camera />} title="Pose AI ready" text="Designed for MediaPipe-style camera tracking with manual fallback for MVP testing." />
-        <Feature icon={<Trophy />} title="Hero ranks" text="Civilian to Limiter Breaker with XP, streaks, badges, and boss raids." />
-      </section>
+        <ComboPanel combo={stats.combo} />
+        <CityMap />
+        <BottomNav onStart={addRep} />
+      </div>
     </main>
   );
 }
 
-function PhoneMockup({ stats, progress, rank, active, activeMission, setActiveMission, addRep, resetBattle, seriousMeter, hitBurst }) {
+function TopStatus() {
   return (
-    <div className="phone-frame">
-      <div className="phone-screen">
-        <header className="app-header">
-          <div>
-            <span className="muted-label">Rank</span>
-            <h2>{rank.rank}</h2>
-          </div>
-          <div className="streak-badge"><Flame size={16} fill="currentColor" /> Day {stats.streak}</div>
-        </header>
-
-        <section className="rank-card">
-          <div className="rank-progress">
-            <div className="ring" style={{ '--ring': `${rank.progress}%` }}>
-              <Medal size={30} />
-            </div>
-            <div>
-              <p>{rank.nextRank}</p>
-              <strong>{rank.xpToNext} XP to next rank</strong>
-            </div>
-          </div>
-          <div className="xp-track"><span style={{ width: `${rank.progress}%` }} /></div>
-        </section>
-
-        <section className="avatar-battle-card">
-          <SpeedLines />
-          <div className="avatar-wrap">
-            <motion.div className="aura" animate={{ scale: [1, 1.08, 1], opacity: [0.55, 0.85, 0.55] }} transition={{ repeat: Infinity, duration: 2.4 }} />
-            <HeroAvatar />
-          </div>
-          <div className="enemy-card">
-            <span>Crab Mutant</span>
-            <strong>HP {stats.enemyHp}%</strong>
-            <div className="enemy-hp"><motion.span animate={{ width: `${stats.enemyHp}%` }} /></div>
-          </div>
-          <AnimatePresence>
-            {hitBurst > 0 && (
-              <motion.div
-                key={hitBurst}
-                className="hit-pop"
-                initial={{ opacity: 0, scale: 0.45, rotate: -10 }}
-                animate={{ opacity: 1, scale: 1, rotate: 2 }}
-                exit={{ opacity: 0, y: -30 }}
-                transition={{ duration: 0.35 }}
-              >
-                CRITICAL HIT
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </section>
-
-        <section className="mission-card">
-          <div className="section-heading">
-            <div><span className="muted-label">Daily mission</span><h3>100 Training Protocol</h3></div>
-            <span className="total-progress">{progress.total}%</span>
-          </div>
-          <div className="mission-list">
-            {missions.map((mission) => {
-              const value = stats[mission.key];
-              const pct = progress[mission.key];
-              return (
-                <button
-                  key={mission.key}
-                  className={`mission-row ${activeMission === mission.key ? 'selected' : ''}`}
-                  onClick={() => setActiveMission(mission.key)}
-                >
-                  <span>{mission.label}</span>
-                  <strong>{value}/{mission.target} {mission.unit}</strong>
-                  <i style={{ width: `${pct}%`, background: mission.color }} />
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="combat-console">
-          <div className="metric"><Gauge size={16} /> Combo <strong>{stats.combo}x</strong></div>
-          <div className="serious-meter"><span style={{ width: `${seriousMeter}%` }} /></div>
-          <button className="mission-button" onClick={addRep}><Zap size={18} fill="currentColor" /> Add {active.label === 'Run' ? '0.25km' : 'clean rep'}</button>
-          <button className="reset-button" onClick={resetBattle}>Reset boss</button>
-        </section>
-
-        <section className="city-map">
-          <div className="section-heading compact"><span>City Defense Map</span><Activity size={16} /></div>
-          <div className="map-grid">
-            {cityZones.map((zone, index) => <span key={zone} className={index === 2 ? 'alert' : ''}>{zone}</span>)}
-          </div>
-        </section>
-      </div>
+    <div className="top-status">
+      <span>9:41</span>
+      <span className="phone-icons">▮▮▮  WiFi  ▰</span>
     </div>
   );
 }
 
-function HeroAvatar() {
+function HeroHeader() {
   return (
-    <svg className="hero-avatar" viewBox="0 0 220 260" role="img" aria-label="Original hero avatar silhouette">
+    <header className="game-header">
+      <button className="icon-btn" aria-label="Menu"><Menu /></button>
+      <Logo />
+      <button className="icon-btn bell" aria-label="Notifications"><Bell /><i>3</i></button>
+    </header>
+  );
+}
+
+function Logo() {
+  return <div className="logo-text"><span>Hero</span> Limiter</div>;
+}
+
+function HeroProfile({ stats, rank }) {
+  return (
+    <section className="hero-profile panel-cut">
+      <div className="city-skyline" />
+      <motion.div className="hero-energy" animate={{ opacity: [0.65, 1, 0.65], scale: [1, 1.05, 1] }} transition={{ repeat: Infinity, duration: 2.2 }} />
+      <OriginalHero />
+
+      <div className="class-badge">
+        <strong>C</strong>
+        <span>Class</span>
+      </div>
+
+      <div className="profile-copy">
+        <h1>C-Class Hero <small>• Day {stats.streak}</small></h1>
+        <p>Keep training. The city counts on you.</p>
+        <div className="xp-row"><em>XP</em><strong>{stats.xp.toLocaleString()} / 3,600</strong></div>
+        <div className="xp-bar"><span style={{ width: `${Math.min(100, Math.round((stats.xp / 3600) * 100))}%` }} /></div>
+      </div>
+
+      <div className="level-ring">
+        <span>Lv.</span>
+        <strong>12</strong>
+      </div>
+
+      <div className="streak-shield">
+        <span>Streak</span>
+        <strong>{stats.streak}</strong>
+        <em>Days</em>
+        <Flame fill="currentColor" />
+      </div>
+    </section>
+  );
+}
+
+function OriginalHero() {
+  return (
+    <svg className="original-hero" viewBox="0 0 310 410" aria-label="Original silhouetted hero with scarf" role="img">
       <defs>
-        <linearGradient id="cape" x1="0" x2="1"><stop stopColor="#ffcb3d" /><stop offset="1" stopColor="#ff365d" /></linearGradient>
-        <linearGradient id="body" x1="0" x2="0" y1="0" y2="1"><stop stopColor="#fff2b3" /><stop offset="1" stopColor="#e3ac40" /></linearGradient>
+        <linearGradient id="scarf" x1="0" x2="1"><stop stopColor="#ff241f" /><stop offset="1" stopColor="#5a0708" /></linearGradient>
+        <filter id="rough"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" /><feDisplacementMap in="SourceGraphic" scale="1" /></filter>
       </defs>
-      <path d="M108 72 C66 78 40 115 32 186 C58 171 85 166 112 179 C141 193 170 190 194 168 C184 108 153 75 108 72Z" fill="url(#cape)" opacity="0.78" />
-      <circle cx="112" cy="54" r="30" fill="#ffe8a1" />
-      <path d="M77 109 C80 84 98 73 121 78 C144 83 157 101 153 132 L148 192 C146 222 127 238 104 234 C81 231 67 211 72 181Z" fill="url(#body)" />
-      <path d="M74 123 C45 135 37 161 48 189" stroke="#ffe8a1" strokeWidth="19" strokeLinecap="round" />
-      <path d="M151 122 C181 132 190 158 180 187" stroke="#ffe8a1" strokeWidth="19" strokeLinecap="round" />
-      <path d="M92 229 L84 252 M124 230 L135 252" stroke="#ffe8a1" strokeWidth="18" strokeLinecap="round" />
-      <path d="M88 54 C102 64 123 64 138 52" stroke="#090711" strokeWidth="6" strokeLinecap="round" opacity="0.55" />
+      <path d="M142 119 C83 119 51 163 37 247 C78 224 110 232 140 257 C178 288 230 285 280 235 C247 156 205 119 142 119Z" fill="url(#scarf)" opacity="0.95" filter="url(#rough)" />
+      <path d="M178 120 C220 122 250 136 299 176 C251 166 224 177 196 197Z" fill="url(#scarf)" opacity="0.92" />
+      <path d="M128 92 C123 67 139 43 166 38 C189 34 210 48 216 71 C196 71 185 79 176 95 C164 89 149 89 128 92Z" fill="#050507" stroke="#f6d338" strokeWidth="3" />
+      <path d="M118 129 C151 99 205 111 216 158 L239 283 C248 332 219 366 171 367 C125 368 91 334 99 286Z" fill="#070707" stroke="#181818" strokeWidth="5" />
+      <path d="M109 148 C75 172 61 217 67 279" stroke="#0a0a0d" strokeWidth="34" strokeLinecap="round" />
+      <path d="M220 155 C250 187 260 233 248 291" stroke="#0a0a0d" strokeWidth="33" strokeLinecap="round" />
+      <path d="M138 360 L120 405 M196 358 L215 405" stroke="#08080b" strokeWidth="34" strokeLinecap="round" />
+      <path d="M224 153 C246 162 267 174 292 197" stroke="#8a0d12" strokeWidth="16" strokeLinecap="round" />
+      <path d="M95 132 C126 112 155 106 206 119" stroke="#ff3026" strokeWidth="12" strokeLinecap="round" />
     </svg>
   );
 }
 
-function SpeedLines() {
-  return <div className="speed-lines" aria-hidden="true">{Array.from({ length: 18 }).map((_, i) => <span key={i} />)}</div>;
-}
-
-function DecorativeBackground() {
+function DailyMissions({ missions, stats, progress, activeMission, setActiveMission }) {
   return (
-    <div className="decorative-bg" aria-hidden="true">
-      <div className="orb orb-one" />
-      <div className="orb orb-two" />
-      <div className="grid-glow" />
-    </div>
+    <section className="daily-panel comic-panel">
+      <PanelTitle title="Daily Missions" accent={<Zap fill="currentColor" />} right="13:18:42" />
+      <div className="mission-stack">
+        {missions.map((mission) => (
+          <button
+            key={mission.key}
+            className={`mission-card ${activeMission === mission.key ? 'active' : ''}`}
+            onClick={() => setActiveMission(mission.key)}
+          >
+            <WorkoutIcon type={mission.icon} />
+            <span>{mission.label}</span>
+            <strong>{mission.key === 'runKm' ? `${stats.runKm} / 10 km` : `${stats[mission.key]} / 100`}</strong>
+            <i><b style={{ width: `${progress[mission.key]}%` }} /></i>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 
-function Feature({ icon, title, text }) {
-  return <article className="feature-card"><span>{icon}</span><h3>{title}</h3><p>{text}</p></article>;
+function MonsterBattle({ stats, hitBurst, resetBattle }) {
+  return (
+    <section className="battle-panel comic-panel">
+      <div className="ribbon-title"><Swords /> Monster Battle</div>
+      <h2>Crab Mutant</h2>
+      <div className="enemy-hp-label"><span>HP</span> {stats.enemyHp}%</div>
+      <div className="enemy-hp"><motion.span animate={{ width: `${stats.enemyHp}%` }} /></div>
+      <CrabMutant />
+      <button className="intel-btn" onClick={resetBattle}><ClipboardList /> Enemy Intel</button>
+      <AnimatePresence>
+        {hitBurst > 0 && (
+          <motion.div
+            key={hitBurst}
+            className="smash-burst"
+            initial={{ scale: 0.55, rotate: -15, opacity: 0 }}
+            animate={{ scale: 1, rotate: -7, opacity: 1 }}
+            exit={{ y: -20, opacity: 0 }}
+          >
+            SMASH!
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </section>
+  );
+}
+
+function CrabMutant() {
+  return (
+    <svg className="crab" viewBox="0 0 390 260" aria-label="Original crab mutant monster" role="img">
+      <defs>
+        <radialGradient id="shell"><stop stopColor="#d84b35" /><stop offset="1" stopColor="#56100d" /></radialGradient>
+      </defs>
+      <path d="M122 146 C111 89 151 44 214 45 C285 47 331 91 326 158 C279 132 199 122 122 146Z" fill="url(#shell)" stroke="#210807" strokeWidth="7" />
+      <circle cx="198" cy="92" r="12" fill="#f2d0c4" /><circle cx="255" cy="91" r="12" fill="#f2d0c4" />
+      <circle cx="201" cy="94" r="5" fill="#111" /><circle cx="252" cy="94" r="5" fill="#111" />
+      <path d="M127 151 C62 149 26 184 12 235 C70 223 112 204 151 173Z" fill="#9d2019" stroke="#210807" strokeWidth="8" />
+      <path d="M315 151 C366 148 385 175 379 230 C338 218 304 194 286 170Z" fill="#9d2019" stroke="#210807" strokeWidth="8" />
+      <path d="M167 151 L128 230 M205 145 L193 238 M247 148 L278 232" stroke="#66120f" strokeWidth="17" strokeLinecap="round" />
+      <path d="M152 70 C177 59 230 61 284 82" stroke="#ff7a4a" strokeWidth="6" opacity="0.45" />
+    </svg>
+  );
+}
+
+function ComboPanel({ combo }) {
+  return (
+    <section className="combo-panel panel-cut">
+      <div className="fist-burst"><Dumbbell /></div>
+      <div className="combo-copy"><h2>Combo Meter</h2><strong>x {combo}</strong><span>Keep it up!</span></div>
+      <div className="combo-path">
+        {[5, 10, 15, 20, 25].map((mark) => <div key={mark} className={combo >= mark ? 'lit' : ''}><i /> <span>{mark}</span></div>)}
+      </div>
+      <div className="reward-card"><span>Next Reward</span><Package /><strong>x1</strong><em>At combo 25</em></div>
+    </section>
+  );
+}
+
+function CityMap() {
+  return (
+    <section className="city-panel panel-cut">
+      <h2><MapPin fill="currentColor" /> City Defense Map</h2>
+      <div className="route-map">
+        <div className="district clear"><Check /><strong>West District</strong><span>Clear</span></div>
+        <div className="route-line" />
+        <div className="district active"><Shield /><strong>Downtown</strong><span>87%</span></div>
+        <div className="route-line red" />
+        <div className="district locked"><Skull /><strong>Harbor Zone</strong><span><Lock size={13} /> Locked</span></div>
+      </div>
+      <button className="view-world">View World ›</button>
+    </section>
+  );
+}
+
+function BottomNav({ onStart }) {
+  const items = [
+    { label: 'Home', icon: <Home />, active: true },
+    { label: 'Missions', icon: <ClipboardList /> },
+    { label: 'Hero Gear', icon: <Shield /> },
+    { label: 'Profile', icon: <User /> },
+  ];
+  return (
+    <nav className="bottom-nav">
+      {items.slice(0, 2).map((item) => <NavItem key={item.label} {...item} />)}
+      <button className="start-orb" onClick={onStart}><span><Play fill="currentColor" /></span><strong>Start Mission</strong></button>
+      {items.slice(2).map((item) => <NavItem key={item.label} {...item} />)}
+    </nav>
+  );
+}
+
+function NavItem({ label, icon, active }) {
+  return <button className={`nav-item ${active ? 'active' : ''}`}>{icon}<span>{label}</span></button>;
+}
+
+function PanelTitle({ title, accent, right }) {
+  return <div className="panel-title"><h2>{title}{accent}</h2>{right && <span>{right}</span>}</div>;
+}
+
+function WorkoutIcon({ type }) {
+  return (
+    <span className={`workout-icon ${type}`}>
+      {type === 'run' ? <span /> : type === 'squat' ? <span /> : type === 'situp' ? <span /> : <span />}
+    </span>
+  );
 }
 
 export default App;
