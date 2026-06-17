@@ -292,6 +292,35 @@ h1 {
   color: #0b0d13;
 }
 
+.camera-tools {
+  margin-bottom: 12px;
+}
+
+.camera-tools label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.camera-tools select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: rgba(255,255,255,.07);
+  color: var(--text);
+  font: 800 14px Inter, system-ui, sans-serif;
+}
+
+.camera-tools select:disabled {
+  opacity: .55;
+}
+
 .camera-stage {
   position: relative;
   height: 245px;

@@ -71,6 +71,18 @@ describe('rep transition logic', () => {
     expect(metrics.visible).toBe(true);
   });
 
+  it('does not require feet to be visible for pushup tracking', () => {
+    const lm = Array.from({ length: 33 }, () => ({ x: 0, y: 0, visibility: 0 }));
+    lm[11] = { x: 0, y: 0, visibility: 1 };
+    lm[13] = { x: 1, y: 0, visibility: 1 };
+    lm[15] = { x: 1, y: 1, visibility: 1 };
+    lm[23] = { x: 0, y: 0.45, visibility: 1 };
+    lm[25] = { x: 0, y: 0.8, visibility: 0 };
+    lm[27] = { x: 0, y: 1.1, visibility: 0 };
+    expect(landmarksToPoseMetrics(lm, 'pushup').visible).toBe(true);
+    expect(landmarksToPoseMetrics(lm, 'squat').visible).toBe(false);
+  });
+
   it('scales battle damage with combo and form quality', () => {
     expect(calculateBattleDamage({ base: 10, combo: 7, quality: 'clean' })).toBe(17);
     expect(calculateBattleDamage({ base: 10, combo: 7, quality: 'weak-form' })).toBe(4);

@@ -138,7 +138,20 @@ function getVisible(landmarks, leftIndex, rightIndex) {
   return best ?? { x: 0, y: 0, visibility: 0 };
 }
 
-export function landmarksToPoseMetrics(landmarks = []) {
+function isVisible(point, threshold = 0.35) {
+  return (point?.visibility ?? 1) > threshold;
+}
+
+function exerciseVisibility(exercise, points) {
+  const { shoulder, elbow, wrist, hip, knee, ankle } = points;
+  const allVisible = (requiredPoints) => requiredPoints.every((point) => isVisible(point));
+  if (exercise === 'pushup') return allVisible([shoulder, elbow, wrist, hip]);
+  if (exercise === 'situp') return allVisible([shoulder, hip, knee]);
+  if (exercise === 'squat') return allVisible([hip, knee, ankle]);
+  return allVisible([shoulder, elbow, wrist, hip, knee, ankle]);
+}
+
+export function landmarksToPoseMetrics(landmarks = [], exercise = 'all') {
   const shoulder = getVisible(landmarks, 11, 12);
   const elbow = getVisible(landmarks, 13, 14);
   const wrist = getVisible(landmarks, 15, 16);
@@ -149,7 +162,8 @@ export function landmarksToPoseMetrics(landmarks = []) {
   const hipMid = averagePoint(landmarks[23], landmarks[24]) ?? hip;
   const kneeMid = averagePoint(landmarks[25], landmarks[26]) ?? knee;
 
-  const visible = [shoulder, elbow, wrist, hip, knee, ankle].every((point) => (point.visibility ?? 1) > 0.45);
+  const points = { shoulder, elbow, wrist, hip, knee, ankle };
+  const visible = exerciseVisibility(exercise, points);
   const elbowAngle = angleBetween(shoulder, elbow, wrist);
   const kneeAngle = angleBetween(hip, knee, ankle);
   const torsoAngle = angleBetween(shoulderMid, hipMid, kneeMid);

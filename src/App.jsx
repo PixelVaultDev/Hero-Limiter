@@ -133,6 +133,7 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
   const [runStatus, setRunStatus] = useState('GPS off');
   const [isCameraOn, setIsCameraOn] = useState(false);
   const [isGpsOn, setIsGpsOn] = useState(false);
+  const [cameraFacing, setCameraFacing] = useState('environment');
 
   const activeValue = activeMission.key === 'runKm' ? `${stats.runKm.toFixed(2)} km` : `${stats[activeMission.key]} reps`;
 
@@ -155,7 +156,15 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
         numPoses: 1,
       });
 
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+      stopCamera();
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: cameraFacing },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      });
       streamRef.current = stream;
       videoRef.current.srcObject = stream;
       await videoRef.current.play();
@@ -190,7 +199,7 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
     const result = detector.detectForVideo(video, performance.now());
     const landmarks = result?.landmarks?.[0];
     if (landmarks) {
-      const metrics = landmarksToPoseMetrics(landmarks);
+      const metrics = landmarksToPoseMetrics(landmarks, activeExercise);
       const previousReps = repStateRef.current.reps;
       const next = countRepTransition(activeExercise, repStateRef.current, metrics);
       repStateRef.current = next;
@@ -284,6 +293,16 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
         ))}
       </div>
 
+      <div className="camera-tools">
+        <label>
+          Camera
+          <select value={cameraFacing} onChange={(event) => setCameraFacing(event.target.value)} disabled={isCameraOn}>
+            <option value="environment">Rear / wider view</option>
+            <option value="user">Selfie camera</option>
+          </select>
+        </label>
+      </div>
+
       <div className="camera-stage">
         <video ref={videoRef} muted playsInline />
         <div className="scan-overlay"><ScanLine size={24} /></div>
@@ -322,11 +341,18 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
 }
 
 function formatPoseStatus(exercise, state) {
-  if (state.quality === 'not-visible') return 'Move back so your full body is visible.';
+  if (state.quality === 'not-visible') return visibilityHint(exercise);
   if (state.quality === 'weak-form') return 'Form check: keep your body straighter before counting.';
   if (state.quality === 'clean') return `${labelForExercise(exercise)} counted. Nice.`;
   if (state.phase === 'bottom') return 'Good depth. Return to the top.';
   return 'Tracking movement…';
+}
+
+function visibilityHint(exercise) {
+  if (exercise === 'pushup') return 'Show shoulders, elbows, wrists, and hips. Side view works best.';
+  if (exercise === 'squat') return 'Show hips, knees, and feet. Rear camera usually helps.';
+  if (exercise === 'situp') return 'Show shoulders, hips, and knees from the side.';
+  return 'Step into frame.';
 }
 
 function labelForExercise(exercise) {
