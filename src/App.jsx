@@ -443,27 +443,28 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
           </button>
           <span>{voiceStatus}</span>
         </div>
-        <div className="camera-action-row" aria-label={activeExercise === 'steps' ? 'Step controls' : 'Camera controls'}>
-          {activeExercise === 'steps' ? (
-            <>
-              <button className="primary-action run" onClick={startStepTracking} type="button">
-                <Footprints size={18} /> {isStepTrackingOn ? 'Steps active' : 'Start steps'}
-              </button>
-              <button onClick={stopStepTracking} type="button" disabled={!isStepTrackingOn}>
-                <Pause size={18} /> Pause steps
-              </button>
-            </>
-          ) : (
-            <>
-              <button className="primary-action" onClick={startCamera} type="button">
-                <Camera size={18} /> {isCameraOn ? 'Tracking' : 'Start camera'}
-              </button>
-              <button onClick={stopCamera} type="button" disabled={!isCameraOn}>
-                <VideoOff size={18} /> Pause camera
-              </button>
-            </>
-          )}
-        </div>
+      </div>
+
+      <div className="camera-action-row" aria-label={activeExercise === 'steps' ? 'Step controls' : 'Camera controls'}>
+        {activeExercise === 'steps' ? (
+          <>
+            <button className="primary-action run" onClick={startStepTracking} type="button">
+              <Footprints size={16} /> {isStepTrackingOn ? 'Steps active' : 'Start steps'}
+            </button>
+            <button onClick={stopStepTracking} type="button" disabled={!isStepTrackingOn}>
+              <Pause size={16} /> Pause steps
+            </button>
+          </>
+        ) : (
+          <>
+            <button className="primary-action" onClick={startCamera} type="button">
+              <Camera size={16} /> {isCameraOn ? 'Tracking' : 'Start camera'}
+            </button>
+            <button onClick={stopCamera} type="button" disabled={!isCameraOn}>
+              <VideoOff size={16} /> Pause camera
+            </button>
+          </>
+        )}
       </div>
 
       <motion.div
