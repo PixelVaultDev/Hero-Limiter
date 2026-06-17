@@ -631,6 +631,27 @@ h1 {
 .voice-toggle:hover { transform: translateY(-1px); }
 .voice-panel span { color: var(--muted); font-size: 12px; line-height: 1.35; font-weight: 800; }
 
+.camera-voice-panel {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 0;
+}
+
+.camera-voice-panel .voice-toggle {
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(5,6,10,.72);
+  backdrop-filter: blur(10px);
+}
+
+.camera-voice-panel span { display: none; }
+
 .camera-stage {
   position: relative;
   height: clamp(360px, 54vh, 620px);
@@ -858,5 +879,7 @@ h1 {
   .mode-tabs button { font-size: 12px; }
   .voice-panel { grid-template-columns: 1fr; }
   .voice-toggle { width: 100%; }
+  .camera-voice-panel { grid-template-columns: unset; }
+  .camera-voice-panel .voice-toggle { width: auto; }
   .action-grid { grid-template-columns: 1fr; }
 }

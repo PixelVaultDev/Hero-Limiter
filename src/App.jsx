@@ -416,6 +416,13 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
         <div className="corner-mark bottom-left" />
         <div className="corner-mark bottom-right" />
         <div className="camera-label"><Camera size={16} /> {cameraStatus}</div>
+        <div className="voice-panel camera-voice-panel">
+          <button className={voiceEnabled ? 'voice-toggle active' : 'voice-toggle'} onClick={toggleVoice} type="button">
+            {voiceEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+            {voiceEnabled ? 'Voice on' : 'Voice off'}
+          </button>
+          <span>{voiceStatus}</span>
+        </div>
         <div className="camera-action-row" aria-label="Camera controls">
           <button className="primary-action" onClick={startCamera} type="button" disabled={activeExercise === 'steps'}>
             <Camera size={18} /> {isCameraOn ? 'Tracking' : 'Start camera'}
@@ -424,15 +431,6 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
             <VideoOff size={18} /> Pause camera
           </button>
         </div>
-      </div>
-
-      <div className="action-grid step-action-grid">
-        <button className="primary-action run" onClick={startStepTracking} type="button">
-          <Footprints size={18} /> {isStepTrackingOn ? 'Steps active' : 'Start steps'}
-        </button>
-        <button onClick={stopStepTracking} type="button" disabled={!isStepTrackingOn}>
-          <Pause size={18} /> Pause steps
-        </button>
       </div>
 
       <motion.div
@@ -492,12 +490,13 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
         </label>
       </div>
 
-      <div className="voice-panel">
-        <button className={voiceEnabled ? 'voice-toggle active' : 'voice-toggle'} onClick={toggleVoice} type="button">
-          {voiceEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
-          {voiceEnabled ? 'Voice count on' : 'Voice count off'}
+      <div className="action-grid step-action-grid">
+        <button className="primary-action run" onClick={startStepTracking} type="button">
+          <Footprints size={18} /> {isStepTrackingOn ? 'Steps active' : 'Start steps'}
         </button>
-        <span>{voiceStatus}</span>
+        <button onClick={stopStepTracking} type="button" disabled={!isStepTrackingOn}>
+          <Pause size={18} /> Pause steps
+        </button>
       </div>
 
       <div className="hint-strip">
