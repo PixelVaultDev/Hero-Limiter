@@ -49,7 +49,14 @@ describe('rep transition logic', () => {
     expect(state).toEqual({ phase: 'top', reps: 5, quality: 'clean' });
   });
 
-  it('converts pose landmarks into pushup/squat metrics', () => {
+  it('counts one situp when user lies back then sits up', () => {
+    let state = { phase: 'top', reps: 0 };
+    state = countRepTransition('situp', state, { torsoAngle: 152 });
+    state = countRepTransition('situp', state, { torsoAngle: 88 });
+    expect(state).toEqual({ phase: 'top', reps: 1, quality: 'clean' });
+  });
+
+  it('converts pose landmarks into pushup/squat/situp metrics', () => {
     const lm = Array.from({ length: 33 }, () => ({ x: 0, y: 0, visibility: 1 }));
     lm[11] = { x: 0, y: 0, visibility: 1 }; // left shoulder
     lm[13] = { x: 1, y: 0, visibility: 1 }; // left elbow
@@ -59,6 +66,7 @@ describe('rep transition logic', () => {
     lm[27] = { x: 0, y: 1.6, visibility: 1 }; // left ankle
     const metrics = landmarksToPoseMetrics(lm);
     expect(metrics.elbowAngle).toBeCloseTo(90, 0);
+    expect(metrics.torsoAngle).toBeGreaterThan(150);
     expect(metrics.hipBelowKnee).toBe(false);
     expect(metrics.visible).toBe(true);
   });

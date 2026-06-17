@@ -51,6 +51,7 @@ export function countRepTransition(exercise, state, pose) {
   if (pose?.visible === false) return { ...state, quality: 'not-visible' };
   if (exercise === 'pushup') return countPushup(state, pose);
   if (exercise === 'squat') return countSquat(state, pose);
+  if (exercise === 'situp') return countSitup(state, pose);
   return { ...state, quality: 'unsupported' };
 }
 
@@ -82,6 +83,21 @@ function countSquat(state, pose) {
   }
 
   if (state.phase === 'bottom' && top) {
+    return { phase: 'top', reps: state.reps + 1, quality: 'clean' };
+  }
+
+  return { ...state, quality: state.quality ?? 'tracking' };
+}
+
+function countSitup(state, pose) {
+  const lyingBack = pose.torsoAngle >= 135;
+  const seatedUp = pose.torsoAngle <= 105;
+
+  if (state.phase === 'top' && lyingBack) {
+    return { ...state, phase: 'bottom', quality: 'loaded' };
+  }
+
+  if (state.phase === 'bottom' && seatedUp) {
     return { phase: 'top', reps: state.reps + 1, quality: 'clean' };
   }
 
@@ -136,11 +152,12 @@ export function landmarksToPoseMetrics(landmarks = []) {
   const visible = [shoulder, elbow, wrist, hip, knee, ankle].every((point) => (point.visibility ?? 1) > 0.45);
   const elbowAngle = angleBetween(shoulder, elbow, wrist);
   const kneeAngle = angleBetween(hip, knee, ankle);
+  const torsoAngle = angleBetween(shoulderMid, hipMid, kneeMid);
   const hipBelowKnee = hipMid.y > kneeMid.y;
   const torsoSlope = Math.abs((hipMid.y ?? hip.y) - (shoulderMid.y ?? shoulder.y));
   const hipDrop = Math.max(0, torsoSlope - 0.35);
 
-  return { elbowAngle, kneeAngle, hipBelowKnee, hipDrop, visible };
+  return { elbowAngle, kneeAngle, torsoAngle, hipBelowKnee, hipDrop, visible };
 }
 
 export function calculateDistanceKm(a, b) {
