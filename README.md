@@ -9,7 +9,6 @@ A cinematic anime-inspired fitness app prototype where workouts become daily her
 - Browser camera pushup/squat/situp rep counter using MediaPipe Pose Landmarker
 - Voice count toggle for reps using browser speech synthesis
 - Motion-based 10k step tracker using browser `devicemotion` events
-- Manual fallback buttons for reps and steps
 - Tested rank, mission progress, rep-transition, pose-metric, battle-damage, GPS-distance helper, and step-counting logic
 
 ## Why not use official One Punch Man branding?
@@ -29,4 +28,4 @@ npm run build
 
 - Camera tracking needs HTTPS and works best when the needed joints are visible.
 - Step tracking uses phone motion sensors, so it needs a supported mobile browser, permission on iOS, and the page open while walking.
-- Manual fallback is kept for poor lighting, blocked sensors, or desktop testing.
+- Counts must come from camera rep tracking or phone motion step tracking; there is no manual add shortcut.
