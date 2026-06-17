@@ -1,5 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, CheckCircle2, MapPin, Pause, Play, RefreshCw, Route, ScanLine, Timer, VideoOff } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Activity,
+  Camera,
+  CheckCircle2,
+  Flame,
+  Gauge,
+  MapPin,
+  Pause,
+  Play,
+  RefreshCw,
+  Route,
+  ScanLine,
+  ShieldCheck,
+  Sparkles,
+  Timer,
+  Trophy,
+  VideoOff,
+  Zap,
+} from 'lucide-react';
 import {
   DAILY_TARGETS,
   calculateMissionProgress,
@@ -16,10 +35,10 @@ const initialStats = {
 };
 
 const exercises = [
-  { key: 'pushups', tracker: 'pushup', label: 'Push ups', short: 'Push', target: 100, unit: 'reps' },
-  { key: 'squats', tracker: 'squat', label: 'Body squats', short: 'Squat', target: 100, unit: 'reps' },
-  { key: 'situps', tracker: 'situp', label: 'Sit ups', short: 'Sit', target: 100, unit: 'reps' },
-  { key: 'runKm', tracker: 'run', label: 'Walk / run', short: 'Run', target: 10, unit: 'km' },
+  { key: 'pushups', tracker: 'pushup', label: 'Push ups', short: 'Push', target: 100, unit: 'reps', icon: Zap },
+  { key: 'squats', tracker: 'squat', label: 'Body squats', short: 'Squat', target: 100, unit: 'reps', icon: ShieldCheck },
+  { key: 'situps', tracker: 'situp', label: 'Sit ups', short: 'Sit', target: 100, unit: 'reps', icon: Activity },
+  { key: 'runKm', tracker: 'run', label: 'Walk / run', short: 'Run', target: 10, unit: 'km', icon: Route },
 ];
 
 function App() {
@@ -29,6 +48,8 @@ function App() {
   const progress = useMemo(() => calculateMissionProgress(stats), [stats]);
   const activeMission = exercises.find((item) => item.tracker === activeExercise) ?? exercises[0];
   const completed = exercises.filter((exercise) => progress[exercise.key] >= 100).length;
+  const totalReps = stats.pushups + stats.squats + stats.situps;
+  const protocolLevel = getProtocolLevel(progress.total);
 
   function addRep(tracker) {
     const mission = exercises.find((item) => item.tracker === tracker);
@@ -54,28 +75,55 @@ function App() {
 
   return (
     <main className="app-shell">
+      <div className="ambient-grid" aria-hidden="true" />
       <section className="app-card">
         <header className="hero-bar">
-          <div>
-            <span className="eyebrow">Daily training</span>
-            <h1>Limiter Mission</h1>
-            <p>Simple tracker for 100 push ups, 100 squats, 100 sit ups, and a 10km walk/run.</p>
+          <div className="brand-block">
+            <span className="brand-pill"><Sparkles size={14} /> by LifeOfJohnHa</span>
+            <h1>Hero Protocol</h1>
+            <p>Interactive daily training OS for 100 push ups, 100 squats, 100 sit ups, and a 10km walk/run.</p>
           </div>
           <button className="ghost-button" onClick={resetAll} type="button">
             <RefreshCw size={18} /> Reset
           </button>
         </header>
 
-        <section className="progress-orb" aria-label="Total mission progress">
-          <div className="orb-ring" style={{ '--progress': `${progress.total}%` }}>
-            <div className="orb-inner" key={pulseKey}>
-              <strong>{progress.total}%</strong>
-              <span>{completed}/4 complete</span>
-            </div>
+        <section className="command-deck" aria-label="Hero Protocol progress overview">
+          <div className="progress-orb">
+            <motion.div
+              className="orb-ring"
+              animate={{ rotate: pulseKey ? [0, 2, -2, 0] : 0 }}
+              transition={{ duration: 0.32 }}
+              style={{ '--progress': `${progress.total}%` }}
+            >
+              <div className="orb-inner" key={pulseKey}>
+                <strong>{progress.total}%</strong>
+                <span>{completed}/4 protocols</span>
+              </div>
+            </motion.div>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={pulseKey}
+                className="impact-burst"
+                initial={{ opacity: 0, scale: 0.72, y: 8 }}
+                animate={{ opacity: [0, 1, 0], scale: [0.72, 1.04, 1.22], y: [8, 0, -10] }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.55 }}
+              >
+                +POWER
+              </motion.div>
+            </AnimatePresence>
           </div>
-          <div className="today-copy">
-            <h2>Start from zero. Finish the day.</h2>
-            <p>Use the camera for reps and GPS for distance. Manual fallback buttons are included for testing and bad camera angles.</p>
+
+          <div className="protocol-panel">
+            <span className="eyebrow"><Gauge size={14} /> Protocol status</span>
+            <h2>{protocolLevel.title}</h2>
+            <p>{protocolLevel.copy}</p>
+            <div className="stat-chips">
+              <span><Flame size={14} /> {totalReps} reps</span>
+              <span><Route size={14} /> {stats.runKm.toFixed(2)} km</span>
+              <span><Trophy size={14} /> Rank {protocolLevel.rank}</span>
+            </div>
           </div>
         </section>
 
@@ -97,23 +145,28 @@ function App() {
 function MissionList({ stats, progress, activeExercise, setActiveExercise }) {
   return (
     <section className="mission-list" aria-label="Mission checklist">
-      {exercises.map((exercise) => {
+      {exercises.map((exercise, index) => {
         const value = exercise.key === 'runKm' ? stats.runKm.toFixed(2) : stats[exercise.key];
         const done = progress[exercise.key] >= 100;
+        const Icon = exercise.icon;
         return (
-          <button
+          <motion.button
             className={`mission-row ${activeExercise === exercise.tracker ? 'active' : ''}`}
             key={exercise.key}
             type="button"
             onClick={() => setActiveExercise(exercise.tracker)}
+            whileTap={{ scale: 0.985 }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.04 }}
           >
-            <div className="mission-icon">{done ? <CheckCircle2 size={22} /> : <span>{exercise.short}</span>}</div>
+            <div className="mission-icon">{done ? <CheckCircle2 size={22} /> : <Icon size={20} />}</div>
             <div className="mission-main">
               <span>{exercise.label}</span>
               <i><b style={{ width: `${progress[exercise.key]}%` }} /></i>
             </div>
             <strong>{value}<small> / {exercise.target}{exercise.key === 'runKm' ? ' km' : ''}</small></strong>
-          </button>
+          </motion.button>
         );
       })}
     </section>
@@ -274,7 +327,7 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
     <section className="tracker-card">
       <div className="tracker-heading">
         <div>
-          <span className="eyebrow">Live tracker</span>
+          <span className="eyebrow"><ScanLine size={14} /> Live protocol</span>
           <h2>{activeMission.label}</h2>
         </div>
         <strong>{activeValue}</strong>
@@ -295,7 +348,7 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
 
       <div className="camera-tools">
         <label>
-          Camera
+          Camera lens
           <select value={cameraFacing} onChange={(event) => setCameraFacing(event.target.value)} disabled={isCameraOn}>
             <option value="user">Selfie camera</option>
             <option value="environment">Rear / wider view</option>
@@ -303,9 +356,13 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
         </label>
       </div>
 
-      <div className="camera-stage">
+      <div className={`camera-stage ${isCameraOn ? 'is-live' : ''}`}>
         <video ref={videoRef} muted playsInline />
         <div className="scan-overlay"><ScanLine size={24} /></div>
+        <div className="corner-mark top-left" />
+        <div className="corner-mark top-right" />
+        <div className="corner-mark bottom-left" />
+        <div className="corner-mark bottom-right" />
         <div className="camera-label"><Camera size={16} /> {cameraStatus}</div>
       </div>
 
@@ -315,13 +372,13 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
         <button className="primary-action" onClick={startCamera} type="button" disabled={activeExercise === 'run'}>
           <Camera size={18} /> {isCameraOn ? 'Tracking' : 'Start camera'}
         </button>
-        <button onClick={stopCamera} type="button">
+        <button onClick={stopCamera} type="button" disabled={!isCameraOn}>
           <VideoOff size={18} /> Stop camera
         </button>
         <button className="primary-action run" onClick={startRun} type="button">
           <Route size={18} /> {isGpsOn ? 'GPS active' : 'Start GPS'}
         </button>
-        <button onClick={stopRun} type="button">
+        <button onClick={stopRun} type="button" disabled={!isGpsOn}>
           <Pause size={18} /> Pause GPS
         </button>
       </div>
@@ -334,10 +391,18 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
         <Timer size={16} /> Camera and GPS require HTTPS. Test on the GitHub Pages link from your phone.
       </div>
       <div className="hint-strip muted">
-        <MapPin size={16} /> For best GPS accuracy, test outside and allow precise location.
+        <MapPin size={16} /> Side view helps push ups/sit ups. Rear/wider helps squats.
       </div>
     </section>
   );
+}
+
+function getProtocolLevel(total) {
+  if (total >= 100) return { title: 'Protocol complete', rank: 'S', copy: 'Daily mission cleared. Recovery, hydrate, and come back tomorrow.' };
+  if (total >= 75) return { title: 'Breakthrough phase', rank: 'A', copy: 'You are close. Finish the last block and lock the protocol.' };
+  if (total >= 40) return { title: 'Power rising', rank: 'B', copy: 'Momentum is building. Keep stacking clean reps and distance.' };
+  if (total > 0) return { title: 'Activation phase', rank: 'C', copy: 'The system is online. Every rep pushes the meter forward.' };
+  return { title: 'Protocol ready', rank: 'D', copy: 'Start from zero. Pick a mission and activate camera or GPS tracking.' };
 }
 
 function formatPoseStatus(exercise, state) {
