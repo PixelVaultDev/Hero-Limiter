@@ -18,6 +18,7 @@ const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const pct = (value, target) => Math.round(clamp((value / target) * 100, 0, 100));
 const STABLE_REP_FRAMES = 3;
 const PUSHUP_STABLE_FRAMES = 2;
+const SQUAT_STABLE_FRAMES = 2;
 const STEP_PEAK_THRESHOLD = 0.55;
 const STEP_RESET_THRESHOLD = 0.35;
 const MAX_SHAKE_PULSE = 3.2;
@@ -110,18 +111,20 @@ function countPushup(state, pose) {
 }
 
 function countSquat(state, pose) {
-  const bottom = pose.hipBelowKnee && pose.kneeAngle <= 105;
-  const top = pose.kneeAngle >= 160 && !pose.hipBelowKnee;
+  const hipKneeGap = pose.hipKneeGap ?? (pose.hipBelowKnee ? -0.01 : Infinity);
+  const bottom = pose.kneeAngle <= 125 && (pose.hipBelowKnee || hipKneeGap <= 0.18);
+  const top = pose.kneeAngle >= 150 && !pose.hipBelowKnee && hipKneeGap >= 0.24;
 
   if (state.phase === 'top' && bottom) {
-    return stableTransition(state, 'bottom', 'loaded');
+    return stableTransition(state, 'bottom', 'loaded', { stableFrames: SQUAT_STABLE_FRAMES });
   }
 
   if (state.phase === 'bottom' && top) {
-    return stableTransition(state, 'top', 'clean', { addRep: true });
+    return stableTransition(state, 'top', 'clean', { addRep: true, stableFrames: SQUAT_STABLE_FRAMES });
   }
 
-  return resetCandidate(state, state.quality ?? 'tracking');
+  if (state.phase === 'bottom') return resetCandidate(state, 'squat-stand-up');
+  return resetCandidate(state, state.quality === 'clean' ? 'clean' : 'squat-go-lower');
 }
 
 function countSitup(state, pose) {
@@ -197,8 +200,8 @@ function poseConfidence(points) {
 
 function exerciseVisibility(exercise, points) {
   const requiredPoints = exercisePoints(exercise, points);
-  const visibilityThreshold = exercise === 'pushup' ? 0.35 : 0.5;
-  const minimumSpan = exercise === 'pushup' ? 0.08 : 0.12;
+  const visibilityThreshold = exercise === 'pushup' || exercise === 'squat' ? 0.35 : 0.5;
+  const minimumSpan = exercise === 'pushup' || exercise === 'squat' ? 0.08 : 0.12;
   return requiredPoints.every((point) => isVisible(point, visibilityThreshold)) && poseSpan(requiredPoints) >= minimumSpan;
 }
 
@@ -221,10 +224,11 @@ export function landmarksToPoseMetrics(landmarks = [], exercise = 'all') {
   const kneeAngle = angleBetween(hip, knee, ankle);
   const torsoAngle = angleBetween(shoulderMid, hipMid, kneeMid);
   const hipBelowKnee = hipMid.y > kneeMid.y;
+  const hipKneeGap = Math.max(0, kneeMid.y - hipMid.y);
   const torsoSlope = Math.abs((hipMid.y ?? hip.y) - (shoulderMid.y ?? shoulder.y));
   const hipDrop = Math.max(0, torsoSlope - 0.35);
 
-  return { elbowAngle, kneeAngle, torsoAngle, hipBelowKnee, hipDrop, visible, poseConfidence: confidence };
+  return { elbowAngle, kneeAngle, torsoAngle, hipBelowKnee, hipKneeGap, hipDrop, visible, poseConfidence: confidence };
 }
 
 export function createStepTracker(initialSteps = 0) {

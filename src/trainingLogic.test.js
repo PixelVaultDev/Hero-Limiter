@@ -63,10 +63,18 @@ describe('rep transition logic', () => {
     expect(state).toMatchObject({ phase: 'top', reps: 5, quality: 'clean' });
   });
 
+  it('counts a real-world squat when hips get near knee height without perfect camera depth', () => {
+    let state = { phase: 'top', reps: 0 };
+    for (let i = 0; i < 2; i += 1) state = countRepTransition('squat', state, { kneeAngle: 122, hipBelowKnee: false, hipKneeGap: 0.12, poseConfidence: 0.82 });
+    expect(state).toMatchObject({ phase: 'bottom', reps: 0 });
+    for (let i = 0; i < 2; i += 1) state = countRepTransition('squat', state, { kneeAngle: 152, hipBelowKnee: false, hipKneeGap: 0.48, poseConfidence: 0.82 });
+    expect(state).toMatchObject({ phase: 'top', reps: 1, quality: 'clean' });
+  });
+
   it('does not count jogging-in-place knee lifts as squats', () => {
     let state = { phase: 'top', reps: 0 };
-    for (let i = 0; i < 3; i += 1) state = countRepTransition('squat', state, { kneeAngle: 82, hipBelowKnee: false, poseConfidence: 0.9 });
-    for (let i = 0; i < 3; i += 1) state = countRepTransition('squat', state, { kneeAngle: 171, hipBelowKnee: false, poseConfidence: 0.9 });
+    for (let i = 0; i < 3; i += 1) state = countRepTransition('squat', state, { kneeAngle: 82, hipBelowKnee: false, hipKneeGap: 0.55, poseConfidence: 0.9 });
+    for (let i = 0; i < 3; i += 1) state = countRepTransition('squat', state, { kneeAngle: 171, hipBelowKnee: false, hipKneeGap: 0.55, poseConfidence: 0.9 });
     expect(state).toMatchObject({ phase: 'top', reps: 0 });
   });
 
@@ -109,6 +117,19 @@ describe('rep transition logic', () => {
     lm[27] = { x: 0, y: 1.1, visibility: 0 };
     expect(landmarksToPoseMetrics(lm, 'pushup').visible).toBe(true);
     expect(landmarksToPoseMetrics(lm, 'squat').visible).toBe(false);
+  });
+
+  it('converts pose landmarks into forgiving squat depth metrics', () => {
+    const lm = Array.from({ length: 33 }, () => ({ x: 0, y: 0, visibility: 0 }));
+    lm[23] = { x: 0, y: 0.62, visibility: 0.4 };
+    lm[24] = { x: 0.12, y: 0.62, visibility: 0.4 };
+    lm[25] = { x: 0, y: 0.72, visibility: 0.4 };
+    lm[26] = { x: 0.12, y: 0.72, visibility: 0.4 };
+    lm[27] = { x: 0.02, y: 1, visibility: 0.4 };
+    lm[28] = { x: 0.14, y: 1, visibility: 0.4 };
+    const metrics = landmarksToPoseMetrics(lm, 'squat');
+    expect(metrics.visible).toBe(true);
+    expect(metrics.hipKneeGap).toBeCloseTo(0.1, 1);
   });
 
   it('scales battle damage with combo and form quality', () => {
