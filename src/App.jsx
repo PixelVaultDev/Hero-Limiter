@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bell,
@@ -18,7 +18,14 @@ import {
   User,
   Zap,
 } from 'lucide-react';
-import { calculateBattleDamage, calculateMissionProgress, getHeroRank } from './trainingLogic.js';
+import {
+  calculateBattleDamage,
+  calculateMissionProgress,
+  getHeroRank,
+  countRepTransition,
+  landmarksToPoseMetrics,
+  updateRunTracker,
+} from './trainingLogic.js';
 
 const missions = [
   { key: 'pushups', label: 'Pushups', target: 100, valueLabel: '42 / 100', icon: 'pushup' },
@@ -28,14 +35,14 @@ const missions = [
 ];
 
 const initialStats = {
-  pushups: 42,
-  situps: 35,
-  squats: 60,
-  runKm: 2.4,
-  xp: 2450,
-  combo: 23,
-  streak: 12,
-  enemyHp: 38,
+  pushups: 0,
+  situps: 0,
+  squats: 0,
+  runKm: 0,
+  xp: 0,
+  combo: 0,
+  streak: 0,
+  enemyHp: 100,
 };
 
 function App() {
@@ -45,16 +52,24 @@ function App() {
   const progress = useMemo(() => calculateMissionProgress(stats), [stats]);
   const rank = useMemo(() => getHeroRank(stats.xp), [stats.xp]);
 
-  function addRep() {
-    const damage = calculateBattleDamage({ base: 7, combo: stats.combo, quality: 'clean' });
+  function addRep(exercise = activeMission, quality = 'clean') {
+    const damage = calculateBattleDamage({ base: 7, combo: stats.combo, quality });
     setStats((current) => ({
       ...current,
-      [activeMission]: activeMission === 'runKm' ? +(current.runKm + 0.25).toFixed(2) : current[activeMission] + 1,
-      combo: current.combo + 1,
-      xp: current.xp + 9,
+      [exercise]: exercise === 'runKm' ? +(current.runKm + 0.25).toFixed(2) : current[exercise] + 1,
+      combo: quality === 'clean' ? current.combo + 1 : current.combo,
+      xp: quality === 'clean' ? current.xp + 9 : current.xp + 1,
       enemyHp: Math.max(0, current.enemyHp - damage),
     }));
     setHitBurst((value) => value + 1);
+  }
+
+  function setRunDistance(distanceKm) {
+    setStats((current) => ({
+      ...current,
+      runKm: +distanceKm.toFixed(2),
+      xp: Math.max(current.xp, Math.round(distanceKm * 60)),
+    }));
   }
 
   function resetBattle() {
@@ -73,9 +88,11 @@ function App() {
           <MonsterBattle stats={stats} hitBurst={hitBurst} resetBattle={resetBattle} />
         </section>
 
+        <LiveWorkoutPanel activeMission={activeMission} onRep={addRep} onRunDistance={setRunDistance} stats={stats} />
+
         <ComboPanel combo={stats.combo} />
         <CityMap />
-        <BottomNav onStart={addRep} />
+        <BottomNav onStart={() => addRep()} />
       </div>
     </main>
   );
@@ -117,7 +134,7 @@ function HeroProfile({ stats, rank }) {
       </div>
 
       <div className="profile-copy">
-        <h1>C-Class Hero <small>• Day {stats.streak}</small></h1>
+        <h1>{rank.rank} <small>• Day {stats.streak}</small></h1>
         <p>Keep training. The city counts on you.</p>
         <div className="xp-row"><em>XP</em><strong>{stats.xp.toLocaleString()} / 3,600</strong></div>
         <div className="xp-bar"><span style={{ width: `${Math.min(100, Math.round((stats.xp / 3600) * 100))}%` }} /></div>
@@ -220,6 +237,143 @@ function CrabMutant() {
       <path d="M167 151 L128 230 M205 145 L193 238 M247 148 L278 232" stroke="#66120f" strokeWidth="17" strokeLinecap="round" />
       <path d="M152 70 C177 59 230 61 284 82" stroke="#ff7a4a" strokeWidth="6" opacity="0.45" />
     </svg>
+  );
+}
+
+function LiveWorkoutPanel({ activeMission, onRep, onRunDistance, stats }) {
+  const videoRef = useRef(null);
+  const detectorRef = useRef(null);
+  const streamRef = useRef(null);
+  const rafRef = useRef(null);
+  const watchRef = useRef(null);
+  const repStateRef = useRef({ phase: 'top', reps: 0, quality: 'ready' });
+  const runTrackerRef = useRef({ distanceKm: 0, lastPoint: null });
+  const [exercise, setExercise] = useState('pushup');
+  const [cameraStatus, setCameraStatus] = useState('Camera off');
+  const [poseQuality, setPoseQuality] = useState('Place full body in frame');
+  const [runStatus, setRunStatus] = useState('GPS off');
+
+  async function startCamera() {
+    if (!['pushup', 'squat'].includes(exercise)) {
+      setPoseQuality('Camera counting is for pushups and squats first.');
+      return;
+    }
+    try {
+      setCameraStatus('Loading pose model...');
+      const vision = await import('@mediapipe/tasks-vision');
+      const resolver = await vision.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm');
+      detectorRef.current = await vision.PoseLandmarker.createFromOptions(resolver, {
+        baseOptions: {
+          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task',
+          delegate: 'GPU',
+        },
+        runningMode: 'VIDEO',
+        numPoses: 1,
+      });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+      streamRef.current = stream;
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play();
+      repStateRef.current = { phase: 'top', reps: stats[exercise] ?? 0, quality: 'ready' };
+      setCameraStatus('Camera tracking');
+      detectLoop();
+    } catch (error) {
+      setCameraStatus('Camera blocked');
+      setPoseQuality(error?.message || 'Allow camera access to test pose counting.');
+    }
+  }
+
+  function stopCamera() {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    streamRef.current?.getTracks?.().forEach((track) => track.stop());
+    streamRef.current = null;
+    setCameraStatus('Camera off');
+  }
+
+  function detectLoop() {
+    const detector = detectorRef.current;
+    const video = videoRef.current;
+    if (!detector || !video || video.readyState < 2) {
+      rafRef.current = requestAnimationFrame(detectLoop);
+      return;
+    }
+    const result = detector.detectForVideo(video, performance.now());
+    const landmarks = result?.landmarks?.[0];
+    if (landmarks) {
+      const metrics = landmarksToPoseMetrics(landmarks);
+      const previousReps = repStateRef.current.reps;
+      const next = countRepTransition(exercise, repStateRef.current, metrics);
+      repStateRef.current = next;
+      setPoseQuality(next.quality === 'not-visible' ? 'Move back — full body not visible' : `${exercise}: ${next.phase} • ${next.quality}`);
+      if (next.reps > previousReps) onRep(exercise, 'clean');
+    } else {
+      setPoseQuality('No body detected — step back into frame');
+    }
+    rafRef.current = requestAnimationFrame(detectLoop);
+  }
+
+  function startRun() {
+    if (!navigator.geolocation) {
+      setRunStatus('GPS not supported on this device');
+      return;
+    }
+    runTrackerRef.current = { distanceKm: 0, lastPoint: null };
+    onRunDistance(0);
+    setRunStatus('GPS starting...');
+    watchRef.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        const point = {
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+          timestamp: pos.timestamp,
+        };
+        runTrackerRef.current = updateRunTracker(runTrackerRef.current, point);
+        onRunDistance(runTrackerRef.current.distanceKm);
+        setRunStatus(`${runTrackerRef.current.distanceKm.toFixed(2)} / 10.00 km • ${runTrackerRef.current.quality}`);
+      },
+      (error) => setRunStatus(error.message || 'Location permission blocked'),
+      { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 },
+    );
+  }
+
+  function stopRun() {
+    if (watchRef.current) navigator.geolocation.clearWatch(watchRef.current);
+    watchRef.current = null;
+    setRunStatus('GPS paused');
+  }
+
+  useEffect(() => () => {
+    stopCamera();
+    stopRun();
+  }, []);
+
+  const missionValue = activeMission === 'runKm' ? `${stats.runKm.toFixed(2)} km` : `${stats[activeMission]} reps`;
+
+  return (
+    <section className="live-panel panel-cut">
+      <div className="live-copy">
+        <h2>Live Test Mode</h2>
+        <p>Free browser test: camera counts clean pushups/squats, GPS tracks the 10km run. Everything starts at zero.</p>
+        <strong>{activeMission.toUpperCase()}: {missionValue}</strong>
+      </div>
+      <div className="camera-box">
+        <video ref={videoRef} muted playsInline />
+        <span>{cameraStatus}</span>
+        <em>{poseQuality}</em>
+      </div>
+      <div className="tracker-controls">
+        <select value={exercise} onChange={(event) => setExercise(event.target.value)}>
+          <option value="pushup">Pushup camera counter</option>
+          <option value="squat">Squat camera counter</option>
+        </select>
+        <button onClick={startCamera}>Start Camera</button>
+        <button onClick={stopCamera}>Stop Camera</button>
+        <button onClick={startRun}>Start 10km GPS</button>
+        <button onClick={stopRun}>Pause GPS</button>
+        <small>{runStatus}</small>
+      </div>
+    </section>
   );
 }
 

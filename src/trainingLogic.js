@@ -48,6 +48,7 @@ export function getHeroRank(xp) {
 }
 
 export function countRepTransition(exercise, state, pose) {
+  if (pose?.visible === false) return { ...state, quality: 'not-visible' };
   if (exercise === 'pushup') return countPushup(state, pose);
   if (exercise === 'squat') return countSquat(state, pose);
   return { ...state, quality: 'unsupported' };
@@ -91,4 +92,83 @@ export function calculateBattleDamage({ base = 10, combo = 0, quality = 'clean' 
   if (quality === 'weak-form') return Math.max(1, Math.round(base * 0.4));
   const comboBonus = Math.min(18, combo);
   return Math.round(base + comboBonus);
+}
+
+export function angleBetween(a, b, c) {
+  const ab = { x: a.x - b.x, y: a.y - b.y };
+  const cb = { x: c.x - b.x, y: c.y - b.y };
+  const dot = ab.x * cb.x + ab.y * cb.y;
+  const magA = Math.hypot(ab.x, ab.y);
+  const magC = Math.hypot(cb.x, cb.y);
+  if (!magA || !magC) return 180;
+  const cosine = clamp(dot / (magA * magC), -1, 1);
+  return Math.round((Math.acos(cosine) * 180) / Math.PI);
+}
+
+function averagePoint(a, b) {
+  if (!a) return b;
+  if (!b) return a;
+  return {
+    x: (a.x + b.x) / 2,
+    y: (a.y + b.y) / 2,
+    visibility: Math.min(a.visibility ?? 1, b.visibility ?? 1),
+  };
+}
+
+function getVisible(landmarks, leftIndex, rightIndex) {
+  const left = landmarks?.[leftIndex];
+  const right = landmarks?.[rightIndex];
+  const best = [left, right].filter(Boolean).sort((a, b) => (b.visibility ?? 1) - (a.visibility ?? 1))[0];
+  return best ?? { x: 0, y: 0, visibility: 0 };
+}
+
+export function landmarksToPoseMetrics(landmarks = []) {
+  const shoulder = getVisible(landmarks, 11, 12);
+  const elbow = getVisible(landmarks, 13, 14);
+  const wrist = getVisible(landmarks, 15, 16);
+  const hip = getVisible(landmarks, 23, 24);
+  const knee = getVisible(landmarks, 25, 26);
+  const ankle = getVisible(landmarks, 27, 28);
+  const shoulderMid = averagePoint(landmarks[11], landmarks[12]) ?? shoulder;
+  const hipMid = averagePoint(landmarks[23], landmarks[24]) ?? hip;
+  const kneeMid = averagePoint(landmarks[25], landmarks[26]) ?? knee;
+
+  const visible = [shoulder, elbow, wrist, hip, knee, ankle].every((point) => (point.visibility ?? 1) > 0.45);
+  const elbowAngle = angleBetween(shoulder, elbow, wrist);
+  const kneeAngle = angleBetween(hip, knee, ankle);
+  const hipBelowKnee = hipMid.y > kneeMid.y;
+  const torsoSlope = Math.abs((hipMid.y ?? hip.y) - (shoulderMid.y ?? shoulder.y));
+  const hipDrop = Math.max(0, torsoSlope - 0.35);
+
+  return { elbowAngle, kneeAngle, hipBelowKnee, hipDrop, visible };
+}
+
+export function calculateDistanceKm(a, b) {
+  if (!a || !b) return 0;
+  const radiusKm = 6371;
+  const dLat = ((b.latitude - a.latitude) * Math.PI) / 180;
+  const dLon = ((b.longitude - a.longitude) * Math.PI) / 180;
+  const lat1 = (a.latitude * Math.PI) / 180;
+  const lat2 = (b.latitude * Math.PI) / 180;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return 2 * radiusKm * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
+export function updateRunTracker(tracker, point) {
+  const safeTracker = tracker ?? { distanceKm: 0, lastPoint: null };
+  if (!point || point.accuracy > 80) {
+    return { ...safeTracker, progress: pct(safeTracker.distanceKm ?? 0, DAILY_TARGETS.runKm), quality: 'gps-weak' };
+  }
+  if (!safeTracker.lastPoint) {
+    return { ...safeTracker, lastPoint: point, progress: pct(safeTracker.distanceKm ?? 0, DAILY_TARGETS.runKm), quality: 'gps-ready' };
+  }
+
+  const segmentKm = calculateDistanceKm(safeTracker.lastPoint, point);
+  const seconds = Math.max(1, ((point.timestamp ?? Date.now()) - (safeTracker.lastPoint.timestamp ?? Date.now())) / 1000);
+  const speedKmh = segmentKm / (seconds / 3600);
+  if (segmentKm > 0.25 && speedKmh > 28) {
+    return { ...safeTracker, progress: pct(safeTracker.distanceKm ?? 0, DAILY_TARGETS.runKm), quality: 'gps-jump-filtered' };
+  }
+  const distanceKm = Math.min(DAILY_TARGETS.runKm, +(safeTracker.distanceKm + segmentKm).toFixed(4));
+  return { distanceKm, lastPoint: point, progress: pct(distanceKm, DAILY_TARGETS.runKm), quality: 'gps-tracking' };
 }

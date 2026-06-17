@@ -6,11 +6,12 @@ A cinematic anime-inspired fitness app prototype where workouts become hero miss
 
 - Premium mobile-first landing/dashboard UI
 - Animated phone mockup with original hero avatar artwork
-- Daily mission tracker: pushups, situps, squats, run
+- Daily mission tracker starts from zero: pushups, situps, squats, 10km run
 - Monster battle health, combo meter, Serious Meter, hit animations
 - Manual rep counting MVP button
-- Tested rank, mission progress, rep-transition, and battle-damage logic
-- Architecture ready for MediaPipe Pose / camera rep detection
+- Browser camera pushup/squat rep counter using MediaPipe Pose Landmarker
+- GPS 10km run tracker using the browser Geolocation API
+- Tested rank, mission progress, rep-transition, pose-metric, battle-damage, and GPS-distance logic
 
 ## Why not use official One Punch Man branding?
 

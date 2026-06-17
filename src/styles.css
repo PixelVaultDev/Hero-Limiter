@@ -146,6 +146,20 @@ button { font: inherit; color: inherit; }
 .smash-burst { position: absolute; right: 8px; bottom: -8px; font-family: Bangers; font-size: 66px; color: var(--yellow); -webkit-text-stroke: 2px #121212; text-shadow: 5px 5px 0 var(--red), 0 0 20px rgba(255,213,31,.4); }
 
 .combo-panel { min-height: 178px; margin: 0 0 18px; display: grid; grid-template-columns: 125px 185px 1fr 190px; align-items: center; gap: 14px; padding: 20px; clip-path: polygon(0 0, 100% 0, 96.5% 100%, 0 100%); border-color: rgba(255,213,31,.75); }
+.live-panel { min-height: 230px; margin: 0 0 18px; display: grid; grid-template-columns: 1fr 270px 250px; align-items: stretch; gap: 16px; padding: 18px; border-color: rgba(240,52,47,.8); clip-path: polygon(0 0, 98.5% 0, 100% 18%, 97% 100%, 0 100%); }
+.live-copy h2 { margin: 0 0 8px; font-family: Bangers; font-size: 43px; letter-spacing: .04em; color: var(--yellow); text-shadow: 4px 4px 0 #000; }
+.live-copy p { margin: 0 0 16px; max-width: 430px; color: #c8c0b5; font: 800 20px/1.2 Inter; }
+.live-copy strong { display: inline-block; padding: 10px 14px; border: 2px solid var(--yellow); background: rgba(255,213,31,.08); color: var(--yellow); font: 900 24px Inter; transform: skew(-8deg); }
+.camera-box { position: relative; min-height: 185px; overflow: hidden; border: 3px solid #0b0b0b; background: radial-gradient(circle, #25231b, #080808); box-shadow: inset 0 0 0 2px rgba(255,255,255,.12); }
+.camera-box video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); opacity: .82; }
+.camera-box span, .camera-box em { position: absolute; left: 10px; right: 10px; padding: 7px 9px; background: rgba(0,0,0,.76); border: 1px solid rgba(255,255,255,.18); font: 900 15px Inter; }
+.camera-box span { top: 10px; color: var(--yellow); }
+.camera-box em { bottom: 10px; color: #eee; font-style: normal; }
+.tracker-controls { display: grid; gap: 9px; align-content: start; }
+.tracker-controls select, .tracker-controls button { min-height: 38px; border: 2px solid #0a0a0a; background: #191917; color: var(--text); text-transform: uppercase; font-weight: 900; padding: 8px 10px; }
+.tracker-controls button { background: linear-gradient(135deg, var(--red), var(--red-dark)); cursor: pointer; box-shadow: 3px 3px 0 #000; }
+.tracker-controls button:nth-of-type(3) { background: linear-gradient(135deg, var(--yellow), var(--orange)); color: #111; }
+.tracker-controls small { color: #bbb4aa; font: 800 14px Inter; line-height: 1.3; }
 .fist-burst { width: 102px; height: 102px; display: grid; place-items: center; border-radius: 50%; background: radial-gradient(circle, #171717, #040404 55%), conic-gradient(from 20deg, var(--red), transparent, var(--red)); box-shadow: 0 0 0 8px rgba(240,52,47,.32), 0 0 30px rgba(240,52,47,.5); }
 .fist-burst svg { width: 58px; height: 58px; color: #151515; fill: #0c0c0c; stroke: #c9c0b8; stroke-width: 1.5; }
 .combo-copy h2 { font-size: 36px; }
@@ -232,6 +246,12 @@ button { font: inherit; color: inherit; }
   .enemy-hp { width: 210px; }
   .smash-burst { font-size: 50px; }
   .combo-panel { grid-template-columns: 72px 102px 1fr; min-height: 150px; padding: 14px; gap: 8px; clip-path: none; }
+  .live-panel { grid-template-columns: 1fr; min-height: auto; padding: 14px; clip-path: none; }
+  .live-copy h2 { font-size: 34px; }
+  .live-copy p { font-size: 15px; }
+  .camera-box { min-height: 210px; }
+  .tracker-controls { grid-template-columns: 1fr 1fr; }
+  .tracker-controls select, .tracker-controls small { grid-column: 1 / -1; }
   .fist-burst { width: 62px; height: 62px; }
   .fist-burst svg { width: 34px; height: 34px; }
   .combo-copy strong { font-size: 44px; }
