@@ -7,8 +7,8 @@
   --line: rgba(255, 255, 255, 0.12);
   --line-strong: rgba(255, 255, 255, 0.2);
   --text: #f8f7f2;
-  --muted: #9ea7bd;
-  --soft: #d8def1;
+  --muted: #b4bed3;
+  --soft: #eef2ff;
   --accent: #ffd84d;
   --accent-2: #ff6b35;
   --good: #4ee28d;
@@ -75,8 +75,12 @@ button { touch-action: manipulation; }
 .app-card {
   position: relative;
   z-index: 1;
-  width: min(100%, 480px);
+  width: min(100%, 960px);
   min-height: calc(100vh - 48px);
+  display: grid;
+  grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+  align-content: start;
+  gap: 16px;
   padding: 18px;
   border: 1px solid var(--line);
   border-radius: 38px;
@@ -88,6 +92,7 @@ button { touch-action: manipulation; }
 }
 
 .hero-bar {
+  grid-column: 1 / -1;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -163,18 +168,19 @@ h1 {
 .ghost-button:hover { transform: translateY(-1px); border-color: rgba(255,255,255,.28); background: rgba(255,255,255,.1); }
 
 .command-deck {
+  grid-column: 1;
   display: grid;
-  grid-template-columns: 154px 1fr;
+  grid-template-columns: 132px 1fr;
   align-items: stretch;
-  gap: 14px;
-  margin-bottom: 16px;
+  gap: 12px;
+  margin-bottom: 0;
 }
 
 .progress-orb {
   position: relative;
   display: grid;
   place-items: center;
-  min-height: 166px;
+  min-height: 148px;
   border: 1px solid var(--line);
   border-radius: 30px;
   background:
@@ -193,8 +199,8 @@ h1 {
 
 .orb-ring {
   position: relative;
-  width: 132px;
-  height: 132px;
+  width: 112px;
+  height: 112px;
   display: grid;
   place-items: center;
   border-radius: 50%;
@@ -203,8 +209,8 @@ h1 {
 }
 
 .orb-inner {
-  width: 104px;
-  height: 104px;
+  width: 88px;
+  height: 88px;
   display: grid;
   place-items: center;
   align-content: center;
@@ -214,8 +220,8 @@ h1 {
   background: radial-gradient(circle at 50% 15%, rgba(255,255,255,.09), rgba(6,8,14,.98));
 }
 
-.orb-inner strong { font-size: 34px; letter-spacing: -.06em; }
-.orb-inner span { color: var(--muted); font-size: 11px; font-weight: 900; text-transform: uppercase; }
+.orb-inner strong { font-size: 29px; letter-spacing: -.06em; }
+.orb-inner span { color: var(--soft); font-size: 12px; font-weight: 950; text-transform: uppercase; }
 
 .impact-burst {
   position: absolute;
@@ -233,9 +239,9 @@ h1 {
 }
 
 .protocol-panel {
-  padding: 16px;
+  padding: 14px;
   border: 1px solid var(--line);
-  border-radius: 30px;
+  border-radius: 26px;
   background:
     linear-gradient(135deg, rgba(117,184,255,.1), rgba(255,216,77,.07)),
     rgba(255,255,255,.04);
@@ -270,9 +276,10 @@ h1 {
 }
 
 .mission-list {
+  grid-column: 1;
   display: grid;
   gap: 10px;
-  margin-bottom: 16px;
+  margin-bottom: 0;
 }
 
 .mission-row {
@@ -281,7 +288,7 @@ h1 {
   grid-template-columns: 48px 1fr auto;
   align-items: center;
   gap: 12px;
-  min-height: 76px;
+  min-height: 70px;
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 24px;
@@ -352,6 +359,9 @@ h1 {
 .mission-row small { color: var(--muted); font-size: 12px; letter-spacing: 0; }
 
 .tracker-card {
+  grid-column: 2;
+  grid-row: 2 / span 2;
+  min-height: 100%;
   padding: 16px;
   border: 1px solid var(--line);
   border-radius: 30px;
@@ -666,6 +676,7 @@ h1 {
 }
 
 .camera-stage.is-live { border-color: rgba(78,226,141,.38); box-shadow: 0 0 34px rgba(78,226,141,.12), inset 0 0 44px rgba(0,0,0,.28); }
+.camera-stage.is-live .scan-overlay { opacity: .55; }
 .camera-stage video { width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1); background: #05060b; }
 
 .camera-action-row {
@@ -708,6 +719,12 @@ h1 {
   box-shadow: 0 13px 30px rgba(255,216,77,.18);
 }
 
+.camera-action-row .primary-action.run {
+  background: linear-gradient(135deg, var(--blue), #7ce1ff);
+  color: #06101d;
+  box-shadow: 0 13px 30px rgba(117,184,255,.18);
+}
+
 .scan-overlay {
   position: absolute;
   inset: 0;
@@ -735,6 +752,85 @@ h1 {
   box-shadow: 0 0 18px rgba(255,216,77,.28);
   animation: scan 2.35s ease-in-out infinite;
 }
+
+.camera-guide {
+  position: absolute;
+  inset: 68px 22px 102px;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  align-items: center;
+  gap: 18px;
+  padding: 16px;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255,216,77,.15), transparent 38%),
+    linear-gradient(135deg, rgba(9,12,20,.74), rgba(9,12,20,.45));
+  color: var(--text);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 20px 54px rgba(0,0,0,.22);
+  transition: opacity .22s ease, transform .22s ease;
+  pointer-events: none;
+}
+
+.camera-guide.hidden {
+  opacity: 0;
+  transform: scale(.98);
+}
+
+.camera-guide strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 20px;
+  line-height: 1.05;
+  letter-spacing: -.045em;
+}
+
+.camera-guide p {
+  margin-bottom: 13px;
+  color: var(--soft);
+  font-size: 13px;
+  line-height: 1.48;
+}
+
+.guide-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.guide-chips span {
+  padding: 7px 9px;
+  border: 1px solid rgba(255,216,77,.18);
+  border-radius: 999px;
+  background: rgba(255,216,77,.08);
+  color: #fff2b0;
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.pose-silhouette {
+  position: relative;
+  width: 104px;
+  height: 176px;
+  margin-inline: auto;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255,216,77,.08), transparent),
+    rgba(255,255,255,.035);
+  box-shadow: inset 0 0 30px rgba(255,216,77,.04);
+}
+
+.pose-silhouette span { position: absolute; display: block; background: rgba(255,216,77,.88); box-shadow: 0 0 18px rgba(255,216,77,.22); }
+.pose-head { width: 24px; height: 24px; left: 39px; top: 22px; border-radius: 50%; }
+.pose-body { width: 8px; height: 56px; left: 48px; top: 52px; border-radius: 999px; }
+.pose-arm, .pose-leg { width: 8px; height: 54px; border-radius: 999px; transform-origin: top center; }
+.pose-arm.left { left: 44px; top: 58px; rotate: 48deg; }
+.pose-arm.right { left: 52px; top: 58px; rotate: -48deg; }
+.pose-leg.left { left: 47px; top: 105px; rotate: 24deg; }
+.pose-leg.right { left: 51px; top: 105px; rotate: -24deg; }
 
 .corner-mark {
   position: absolute;
@@ -812,6 +908,16 @@ h1 {
   box-shadow: 0 13px 30px rgba(117,184,255,.14);
 }
 
+.ghost-button:focus-visible,
+.mode-tabs button:focus-visible,
+.mission-row:focus-visible,
+.camera-action-row button:focus-visible,
+.action-grid button:focus-visible,
+.voice-toggle:focus-visible {
+  outline: 2px solid rgba(255,216,77,.82);
+  outline-offset: 3px;
+}
+
 .hint-strip {
   display: flex;
   align-items: center;
@@ -841,6 +947,17 @@ h1 {
   }
 }
 
+@media (max-width: 860px) {
+  .app-shell { padding: 18px; }
+  .app-card {
+    width: min(100%, 520px);
+    display: block;
+  }
+  .command-deck { margin-bottom: 16px; }
+  .mission-list { margin-bottom: 16px; }
+  .tracker-card { min-height: 0; }
+}
+
 @media (max-width: 520px) {
   .app-shell { padding: 0; }
   .app-card { width: 100%; min-height: 100vh; border: 0; border-radius: 0; padding: 16px 14px 22px; }
@@ -861,6 +978,14 @@ h1 {
   .mission-icon { width: 42px; height: 42px; border-radius: 15px; }
   .mission-row strong { font-size: 18px; }
   .camera-stage { height: min(52vh, 520px); min-height: 360px; }
+  .camera-guide { inset: 66px 16px 98px; grid-template-columns: 92px 1fr; gap: 14px; padding: 15px; }
+  .pose-silhouette { width: 84px; height: 148px; }
+  .pose-head { left: 30px; top: 18px; }
+  .pose-body { left: 38px; top: 46px; height: 48px; }
+  .pose-arm.left { left: 35px; top: 51px; }
+  .pose-arm.right { left: 43px; top: 51px; }
+  .pose-leg.left { left: 37px; top: 90px; }
+  .pose-leg.right { left: 42px; top: 90px; }
 }
 
 @media (max-width: 380px) {
@@ -881,5 +1006,11 @@ h1 {
   .voice-toggle { width: 100%; }
   .camera-voice-panel { grid-template-columns: unset; }
   .camera-voice-panel .voice-toggle { width: auto; }
+  .camera-guide { inset: 60px 12px 96px; grid-template-columns: 1fr; place-items: center; text-align: center; gap: 10px; }
+  .camera-guide strong { font-size: 18px; }
+  .camera-guide p { font-size: 12px; }
+  .guide-chips { justify-content: center; }
+  .pose-silhouette { display: none; }
+  .camera-action-row { grid-template-columns: 1fr; }
   .action-grid { grid-template-columns: 1fr; }
 }

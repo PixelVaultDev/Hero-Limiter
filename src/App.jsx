@@ -7,7 +7,6 @@ import {
   Flame,
   Footprints,
   Gauge,
-  MapPin,
   Pause,
   RefreshCw,
   ScanLine,
@@ -100,7 +99,7 @@ function App() {
             >
               <div className="orb-inner" key={pulseKey}>
                 <strong>{progress.total}%</strong>
-                <span>{completed}/4 protocols</span>
+                <span>{completed}/4 done</span>
               </div>
             </motion.div>
             <AnimatePresence mode="wait">
@@ -205,6 +204,7 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
     : activeMission.key === 'steps'
       ? `${activeProgress}% route energy`
       : `${Math.min(activeRawCount, 20)} hit combo`;
+  const setupGuide = getSetupGuide(activeExercise);
 
   async function startCamera() {
     if (activeExercise === 'steps') {
@@ -411,11 +411,31 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
       <div className={`camera-stage ${isCameraOn ? 'is-live' : ''}`}>
         <video ref={videoRef} muted playsInline />
         <div className="scan-overlay"><ScanLine size={24} /></div>
+        <div className={isCameraOn ? 'camera-guide hidden' : 'camera-guide'} aria-hidden={isCameraOn}>
+          <div className="pose-silhouette">
+            <span className="pose-head" />
+            <span className="pose-body" />
+            <span className="pose-arm left" />
+            <span className="pose-arm right" />
+            <span className="pose-leg left" />
+            <span className="pose-leg right" />
+          </div>
+          <div>
+            <strong>{setupGuide.title}</strong>
+            <p>{setupGuide.copy}</p>
+            <div className="guide-chips">
+              {setupGuide.chips.map((chip) => <span key={chip}>{chip}</span>)}
+            </div>
+          </div>
+        </div>
         <div className="corner-mark top-left" />
         <div className="corner-mark top-right" />
         <div className="corner-mark bottom-left" />
         <div className="corner-mark bottom-right" />
-        <div className="camera-label"><Camera size={16} /> {cameraStatus}</div>
+        <div className="camera-label">
+          {activeExercise === 'steps' ? <Footprints size={16} /> : <Camera size={16} />}
+          {activeExercise === 'steps' ? 'Motion mode' : cameraStatus}
+        </div>
         <div className="voice-panel camera-voice-panel">
           <button className={voiceEnabled ? 'voice-toggle active' : 'voice-toggle'} onClick={toggleVoice} type="button">
             {voiceEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
@@ -423,13 +443,26 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
           </button>
           <span>{voiceStatus}</span>
         </div>
-        <div className="camera-action-row" aria-label="Camera controls">
-          <button className="primary-action" onClick={startCamera} type="button" disabled={activeExercise === 'steps'}>
-            <Camera size={18} /> {isCameraOn ? 'Tracking' : 'Start camera'}
-          </button>
-          <button onClick={stopCamera} type="button" disabled={!isCameraOn}>
-            <VideoOff size={18} /> Pause camera
-          </button>
+        <div className="camera-action-row" aria-label={activeExercise === 'steps' ? 'Step controls' : 'Camera controls'}>
+          {activeExercise === 'steps' ? (
+            <>
+              <button className="primary-action run" onClick={startStepTracking} type="button">
+                <Footprints size={18} /> {isStepTrackingOn ? 'Steps active' : 'Start steps'}
+              </button>
+              <button onClick={stopStepTracking} type="button" disabled={!isStepTrackingOn}>
+                <Pause size={18} /> Pause steps
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="primary-action" onClick={startCamera} type="button">
+                <Camera size={18} /> {isCameraOn ? 'Tracking' : 'Start camera'}
+              </button>
+              <button onClick={stopCamera} type="button" disabled={!isCameraOn}>
+                <VideoOff size={18} /> Pause camera
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -480,33 +513,52 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
 
       <p className="tracker-status">{activeExercise === 'steps' ? stepStatus : poseStatus}</p>
 
-      <div className="camera-tools">
-        <label>
-          Camera lens
-          <select value={cameraFacing} onChange={(event) => setCameraFacing(event.target.value)} disabled={isCameraOn}>
-            <option value="user">Selfie camera</option>
-            <option value="environment">Rear / wider view</option>
-          </select>
-        </label>
-      </div>
-
-      <div className="action-grid step-action-grid">
-        <button className="primary-action run" onClick={startStepTracking} type="button">
-          <Footprints size={18} /> {isStepTrackingOn ? 'Steps active' : 'Start steps'}
-        </button>
-        <button onClick={stopStepTracking} type="button" disabled={!isStepTrackingOn}>
-          <Pause size={18} /> Pause steps
-        </button>
-      </div>
+      {activeExercise !== 'steps' && (
+        <div className="camera-tools">
+          <label>
+            Camera lens
+            <select value={cameraFacing} onChange={(event) => setCameraFacing(event.target.value)} disabled={isCameraOn}>
+              <option value="user">Selfie camera</option>
+              <option value="environment">Rear / wider view</option>
+            </select>
+          </label>
+        </div>
+      )}
 
       <div className="hint-strip">
-        <Timer size={16} /> Camera and motion steps require HTTPS. Keep the page open while walking.
-      </div>
-      <div className="hint-strip muted">
-        <MapPin size={16} /> Side view helps push ups/sit ups. Rear/wider helps squats.
+        <Timer size={16} /> Camera and motion steps require HTTPS. Side view helps reps; rear/wide helps squats.
       </div>
     </section>
   );
+}
+
+function getSetupGuide(exercise) {
+  if (exercise === 'steps') {
+    return {
+      title: 'Step mode uses your phone motion',
+      copy: 'Tap Start steps, allow motion access, then keep the phone in your hand or pocket while walking.',
+      chips: ['Phone stays awake', 'Hand or pocket', 'HTTPS required'],
+    };
+  }
+  if (exercise === 'squat') {
+    return {
+      title: 'Set the phone low and wide',
+      copy: 'Use rear camera if possible. Keep hips, knees, and feet visible for the cleanest squat counts.',
+      chips: ['Rear camera', 'Full legs visible', 'Bright room'],
+    };
+  }
+  if (exercise === 'situp') {
+    return {
+      title: 'Side view for clean sit ups',
+      copy: 'Place the phone 6–8 feet away so your shoulders, hips, and knees stay in frame.',
+      chips: ['Side view', '6–8 feet away', 'Whole torso visible'],
+    };
+  }
+  return {
+    title: 'Side view for clean push ups',
+    copy: 'Place the phone 6–8 feet away. Keep shoulders, elbows, wrists, and hips inside the frame.',
+    chips: ['Side view', '6–8 feet away', 'Whole body line visible'],
+  };
 }
 
 function getProtocolLevel(total) {
