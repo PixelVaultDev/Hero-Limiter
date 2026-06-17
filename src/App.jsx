@@ -192,6 +192,7 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
   const [cameraFacing, setCameraFacing] = useState('user');
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [counterPulseKey, setCounterPulseKey] = useState(0);
+  const [repFeedback, setRepFeedback] = useState('Ready for clean reps.');
 
   const activeRawCount = stats[activeMission.key];
   const activeValue = activeMission.key === 'steps' ? `${stats.steps.toLocaleString()} steps` : `${stats[activeMission.key]} reps`;
@@ -313,6 +314,7 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
       repStateRef.current = next;
       setPoseStatus(formatPoseStatus(activeExercise, next));
       if (next.reps > previousReps) {
+        setRepFeedback(`${labelForExercise(activeExercise)} counted. Nice.`);
         triggerCounterPulse();
         onRep(activeExercise);
         speakRepCount(next.reps);
@@ -382,6 +384,7 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
     if (activeExercise !== 'steps') {
       const mission = exercises.find((item) => item.tracker === activeExercise);
       repStateRef.current = { phase: 'top', reps: stats[mission.key] ?? 0, quality: 'ready' };
+      setRepFeedback('Ready for clean reps.');
     }
   }, [activeExercise]);
 
@@ -407,6 +410,19 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
           </button>
         ))}
       </div>
+
+      {activeExercise !== 'steps' && (
+        <motion.p
+          className={counterPulseKey > 0 ? 'rep-feedback counted' : 'rep-feedback'}
+          key={`${activeExercise}-${repFeedback}-${counterPulseKey}`}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.22 }}
+          aria-live="polite"
+        >
+          <CheckCircle2 size={16} /> {repFeedback}
+        </motion.p>
+      )}
 
       <div className={`camera-stage ${isCameraOn ? 'is-live' : ''}`}>
         <video ref={videoRef} muted playsInline />

@@ -421,6 +421,34 @@ h1 {
 
 .mode-tabs button:active { transform: scale(.97); }
 
+.rep-feedback {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: -2px 0 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 16px;
+  background: rgba(255,255,255,.055);
+  color: var(--soft);
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.3;
+}
+
+.rep-feedback svg { color: var(--accent); flex: 0 0 auto; }
+
+.rep-feedback.counted {
+  border-color: rgba(78,226,141,.3);
+  background: linear-gradient(135deg, rgba(78,226,141,.14), rgba(255,216,77,.08));
+  color: #dfffe9;
+  box-shadow: 0 10px 26px rgba(78,226,141,.08);
+}
+
+.rep-feedback.counted svg { color: var(--good); }
+
 .kinetic-counter {
   position: relative;
   width: 100%;
