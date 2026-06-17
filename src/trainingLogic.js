@@ -104,7 +104,7 @@ function countPushup(state, pose) {
 }
 
 function countSquat(state, pose) {
-  const bottom = pose.hipBelowKnee || pose.kneeAngle <= 95;
+  const bottom = pose.hipBelowKnee && pose.kneeAngle <= 105;
   const top = pose.kneeAngle >= 160 && !pose.hipBelowKnee;
 
   if (state.phase === 'top' && bottom) {

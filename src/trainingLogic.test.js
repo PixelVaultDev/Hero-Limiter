@@ -57,6 +57,13 @@ describe('rep transition logic', () => {
     expect(state).toMatchObject({ phase: 'top', reps: 5, quality: 'clean' });
   });
 
+  it('does not count jogging-in-place knee lifts as squats', () => {
+    let state = { phase: 'top', reps: 0 };
+    for (let i = 0; i < 3; i += 1) state = countRepTransition('squat', state, { kneeAngle: 82, hipBelowKnee: false, poseConfidence: 0.9 });
+    for (let i = 0; i < 3; i += 1) state = countRepTransition('squat', state, { kneeAngle: 171, hipBelowKnee: false, poseConfidence: 0.9 });
+    expect(state).toMatchObject({ phase: 'top', reps: 0 });
+  });
+
   it('counts one situp when user lies back then sits up', () => {
     let state = { phase: 'top', reps: 0 };
     for (let i = 0; i < 3; i += 1) state = countRepTransition('situp', state, { torsoAngle: 152, poseConfidence: 0.9 });
