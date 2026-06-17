@@ -17,6 +17,7 @@ export const RANKS = [
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const pct = (value, target) => Math.round(clamp((value / target) * 100, 0, 100));
 const STABLE_REP_FRAMES = 3;
+const PUSHUP_STABLE_FRAMES = 2;
 const STEP_PEAK_THRESHOLD = 0.55;
 const STEP_RESET_THRESHOLD = 0.35;
 const MAX_SHAKE_PULSE = 3.2;
@@ -68,9 +69,9 @@ function resetCandidate(state, quality) {
   return { ...state, candidate: null, candidateFrames: 0, quality };
 }
 
-function stableTransition(state, targetPhase, quality, { addRep = false, weakForm = false } = {}) {
+function stableTransition(state, targetPhase, quality, { addRep = false, weakForm = false, stableFrames = STABLE_REP_FRAMES } = {}) {
   const candidateFrames = state.candidate === targetPhase ? (state.candidateFrames ?? 0) + 1 : 1;
-  if (candidateFrames < STABLE_REP_FRAMES) {
+  if (candidateFrames < stableFrames) {
     return { ...state, candidate: targetPhase, candidateFrames, quality: quality === 'clean' ? 'stabilizing' : quality };
   }
 
@@ -88,22 +89,24 @@ function stableTransition(state, targetPhase, quality, { addRep = false, weakFor
 }
 
 function countPushup(state, pose) {
-  const bottom = pose.elbowAngle <= 90;
-  const top = pose.elbowAngle >= 155;
+  const bottom = pose.elbowAngle <= 120;
+  const top = pose.elbowAngle >= 140;
   const weakForm = pose.hipDrop > 0.18;
 
   if (state.phase === 'top' && bottom) {
-    return stableTransition(state, 'bottom', weakForm ? 'weak-form' : 'loaded');
+    return stableTransition(state, 'bottom', weakForm ? 'weak-form' : 'loaded', { stableFrames: PUSHUP_STABLE_FRAMES });
   }
 
   if (state.phase === 'bottom' && top) {
     return stableTransition(state, 'top', 'clean', {
       addRep: true,
       weakForm: state.quality === 'weak-form' || weakForm,
+      stableFrames: PUSHUP_STABLE_FRAMES,
     });
   }
 
-  return resetCandidate(state, weakForm ? 'weak-form' : state.quality ?? 'tracking');
+  if (state.phase === 'bottom') return resetCandidate(state, weakForm ? 'weak-form' : 'pushup-return-to-top');
+  return resetCandidate(state, weakForm ? 'weak-form' : 'pushup-go-lower');
 }
 
 function countSquat(state, pose) {
@@ -194,7 +197,9 @@ function poseConfidence(points) {
 
 function exerciseVisibility(exercise, points) {
   const requiredPoints = exercisePoints(exercise, points);
-  return requiredPoints.every((point) => isVisible(point, 0.5)) && poseSpan(requiredPoints) >= 0.12;
+  const visibilityThreshold = exercise === 'pushup' ? 0.35 : 0.5;
+  const minimumSpan = exercise === 'pushup' ? 0.08 : 0.12;
+  return requiredPoints.every((point) => isVisible(point, visibilityThreshold)) && poseSpan(requiredPoints) >= minimumSpan;
 }
 
 export function landmarksToPoseMetrics(landmarks = [], exercise = 'all') {

@@ -29,17 +29,23 @@ describe('hero progression logic', () => {
 });
 
 describe('rep transition logic', () => {
-  it('counts one pushup only after stable top-bottom-top movement', () => {
+  it('counts one pushup after stable top-bottom-top movement', () => {
     let state = { phase: 'top', reps: 0 };
-    state = countRepTransition('pushup', state, { elbowAngle: 72, hipDrop: 0.04, poseConfidence: 0.9 });
     state = countRepTransition('pushup', state, { elbowAngle: 72, hipDrop: 0.04, poseConfidence: 0.9 });
     expect(state.reps).toBe(0);
     state = countRepTransition('pushup', state, { elbowAngle: 72, hipDrop: 0.04, poseConfidence: 0.9 });
     expect(state.phase).toBe('bottom');
     state = countRepTransition('pushup', state, { elbowAngle: 166, hipDrop: 0.03, poseConfidence: 0.9 });
-    state = countRepTransition('pushup', state, { elbowAngle: 166, hipDrop: 0.03, poseConfidence: 0.9 });
     expect(state.reps).toBe(0);
     state = countRepTransition('pushup', state, { elbowAngle: 166, hipDrop: 0.03, poseConfidence: 0.9 });
+    expect(state).toMatchObject({ phase: 'top', reps: 1, quality: 'clean' });
+  });
+
+  it('counts a real-world pushup when arm angles are less than perfect side-view angles', () => {
+    let state = { phase: 'top', reps: 0 };
+    for (let i = 0; i < 2; i += 1) state = countRepTransition('pushup', state, { elbowAngle: 118, hipDrop: 0.05, poseConfidence: 0.82 });
+    expect(state).toMatchObject({ phase: 'bottom', reps: 0 });
+    for (let i = 0; i < 2; i += 1) state = countRepTransition('pushup', state, { elbowAngle: 145, hipDrop: 0.04, poseConfidence: 0.82 });
     expect(state).toMatchObject({ phase: 'top', reps: 1, quality: 'clean' });
   });
 
@@ -95,10 +101,10 @@ describe('rep transition logic', () => {
 
   it('does not require feet to be visible for pushup tracking', () => {
     const lm = Array.from({ length: 33 }, () => ({ x: 0, y: 0, visibility: 0 }));
-    lm[11] = { x: 0, y: 0, visibility: 1 };
-    lm[13] = { x: 1, y: 0, visibility: 1 };
-    lm[15] = { x: 1, y: 1, visibility: 1 };
-    lm[23] = { x: 0, y: 0.45, visibility: 1 };
+    lm[11] = { x: 0, y: 0, visibility: 0.4 };
+    lm[13] = { x: 1, y: 0, visibility: 0.4 };
+    lm[15] = { x: 1, y: 1, visibility: 0.4 };
+    lm[23] = { x: 0, y: 0.45, visibility: 0.4 };
     lm[25] = { x: 0, y: 0.8, visibility: 0 };
     lm[27] = { x: 0, y: 1.1, visibility: 0 };
     expect(landmarksToPoseMetrics(lm, 'pushup').visible).toBe(true);

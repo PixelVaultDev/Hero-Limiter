@@ -589,6 +589,8 @@ function getProtocolLevel(total) {
 function formatPoseStatus(exercise, state) {
   if (state.quality === 'not-visible') return visibilityHint(exercise);
   if (state.quality === 'weak-form') return 'Form check: keep your body straighter before counting.';
+  if (state.quality === 'pushup-go-lower') return 'Push up tracking: bend lower so elbows clearly close.';
+  if (state.quality === 'pushup-return-to-top') return 'Push up tracking: good depth. Push back near the top.';
   if (state.quality === 'clean') return `${labelForExercise(exercise)} counted. Nice.`;
   if (state.phase === 'bottom') return 'Good depth. Return to the top.';
   return 'Tracking movement…';
