@@ -139,6 +139,21 @@ describe('10k step tracking', () => {
     expect(tracker.quality).toBe('step-counted');
   });
 
+  it('continues counting a normal walking rhythm after the first four steps', () => {
+    let tracker = createStepTracker();
+    const walkingSamples = Array.from({ length: 24 }, (_, index) => [
+      index * 220,
+      index % 2 === 0 ? 9.9 : 11.15,
+    ]);
+
+    for (const [timestamp, z] of walkingSamples) {
+      tracker = updateStepTracker(tracker, { timestamp, accelerationIncludingGravity: { x: 0.25, y: 0.12, z } });
+    }
+
+    expect(tracker.steps).toBeGreaterThanOrEqual(10);
+    expect(tracker.quality).toBe('step-counted');
+  });
+
   it('rejects erratic phone shaking instead of counting it as walking', () => {
     let tracker = createStepTracker();
     const shakeSamples = [

@@ -17,8 +17,8 @@ export const RANKS = [
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const pct = (value, target) => Math.round(clamp((value / target) * 100, 0, 100));
 const STABLE_REP_FRAMES = 3;
-const STEP_PEAK_THRESHOLD = 0.85;
-const STEP_RESET_THRESHOLD = 0.18;
+const STEP_PEAK_THRESHOLD = 0.55;
+const STEP_RESET_THRESHOLD = 0.35;
 const MAX_SHAKE_PULSE = 3.2;
 const MIN_WALK_STEP_INTERVAL_MS = 330;
 const MAX_WALK_STEP_INTERVAL_MS = 950;
