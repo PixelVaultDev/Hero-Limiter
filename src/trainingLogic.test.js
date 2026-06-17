@@ -118,29 +118,66 @@ describe('10k step tracking', () => {
     expect(progress.total).toBe(3);
   });
 
-  it('counts walking-like motion peaks while rejecting flat samples', () => {
+  it('counts only after a real walking cadence is established', () => {
     let tracker = createStepTracker();
-    tracker = updateStepTracker(tracker, { timestamp: 0, accelerationIncludingGravity: { x: 0, y: 0, z: 9.8 } });
-    tracker = updateStepTracker(tracker, { timestamp: 320, accelerationIncludingGravity: { x: 0, y: 0, z: 11.7 } });
-    expect(tracker.steps).toBe(1);
+    const walkingSamples = [
+      [0, 9.8],
+      [420, 11.25],
+      [620, 9.82],
+      [840, 11.3],
+      [1040, 9.78],
+      [1260, 11.22],
+      [1460, 9.82],
+      [1680, 11.28],
+    ];
 
-    tracker = updateStepTracker(tracker, { timestamp: 470, accelerationIncludingGravity: { x: 0, y: 0, z: 11.8 } });
-    expect(tracker.steps).toBe(1);
+    for (const [timestamp, z] of walkingSamples) {
+      tracker = updateStepTracker(tracker, { timestamp, accelerationIncludingGravity: { x: 0.25, y: 0.12, z } });
+    }
 
-    tracker = updateStepTracker(tracker, { timestamp: 650, accelerationIncludingGravity: { x: 0, y: 0, z: 9.8 } });
-    tracker = updateStepTracker(tracker, { timestamp: 980, accelerationIncludingGravity: { x: 0, y: 0, z: 11.8 } });
-    expect(tracker.steps).toBe(2);
+    expect(tracker.steps).toBe(4);
+    expect(tracker.quality).toBe('step-counted');
   });
 
-  it('counts the first walking peak even after the tracker has been open for several seconds', () => {
+  it('rejects erratic phone shaking instead of counting it as walking', () => {
+    let tracker = createStepTracker();
+    const shakeSamples = [
+      [0, { x: 0, y: 0, z: 9.8 }],
+      [180, { x: 4.4, y: -5.1, z: 13.9 }],
+      [260, { x: -6.2, y: 4.8, z: 6.4 }],
+      [430, { x: 5.9, y: -4.6, z: 14.5 }],
+      [510, { x: -5.8, y: 5.2, z: 6.1 }],
+      [690, { x: 6.6, y: -5.4, z: 15.1 }],
+      [760, { x: -6.4, y: 5.1, z: 5.9 }],
+      [940, { x: 5.7, y: -4.9, z: 14.7 }],
+    ];
+
+    for (const [timestamp, accelerationIncludingGravity] of shakeSamples) {
+      tracker = updateStepTracker(tracker, { timestamp, accelerationIncludingGravity });
+    }
+
+    expect(tracker.steps).toBe(0);
+    expect(tracker.quality).toBe('step-shake-rejected');
+  });
+
+  it('does not count the first isolated motion peak after the tracker has been open for several seconds', () => {
     let tracker = createStepTracker();
     tracker = updateStepTracker(tracker, { timestamp: 5000, accelerationIncludingGravity: { x: 0, y: 0, z: 9.8 } });
     tracker = updateStepTracker(tracker, { timestamp: 5380, accelerationIncludingGravity: { x: 0, y: 0, z: 12.2 } });
-    expect(tracker.steps).toBe(1);
+    expect(tracker.steps).toBe(0);
+    expect(tracker.quality).toBe('step-seeking-cadence');
   });
 
   it('caps step progress at the 10k daily target', () => {
-    const tracker = { ...createStepTracker(9999), smoothMagnitude: 9.8, lastStepAt: 0 };
+    const tracker = {
+      ...createStepTracker(9999),
+      smoothMagnitude: 9.8,
+      previousMagnitude: 9.8,
+      lastPeakAt: 0,
+      candidateStepTimes: [0, 420, 840, 1260],
+      walkLocked: true,
+      armed: true,
+    };
     const updated = updateStepTracker(tracker, { timestamp: 500, accelerationIncludingGravity: { x: 0, y: 0, z: 12.2 } });
     expect(updated.steps).toBe(10000);
     expect(updated.progress).toBe(100);

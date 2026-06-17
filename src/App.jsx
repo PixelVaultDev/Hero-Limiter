@@ -593,9 +593,11 @@ function labelForExercise(exercise) {
 }
 
 function readableStepQuality(quality) {
-  if (quality === 'step-counted') return 'step counted';
+  if (quality === 'step-counted') return 'walking counted';
+  if (quality === 'step-seeking-cadence') return 'checking for real walking';
+  if (quality === 'step-shake-rejected') return 'shake ignored';
   if (quality === 'step-no-motion') return 'waiting for phone motion';
-  if (quality === 'step-waiting') return 'walking signal ready';
+  if (quality === 'step-waiting') return 'walk to start counting';
   return 'tracking motion';
 }
 

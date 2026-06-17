@@ -17,10 +17,13 @@ export const RANKS = [
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const pct = (value, target) => Math.round(clamp((value / target) * 100, 0, 100));
 const STABLE_REP_FRAMES = 3;
-const STEP_THRESHOLD = 1.05;
-const STEP_RESET_THRESHOLD = 0.22;
-const MIN_STEP_INTERVAL_MS = 280;
-const MAX_STEP_INTERVAL_MS = 2200;
+const STEP_PEAK_THRESHOLD = 0.85;
+const STEP_RESET_THRESHOLD = 0.18;
+const MAX_SHAKE_PULSE = 3.2;
+const MIN_WALK_STEP_INTERVAL_MS = 330;
+const MAX_WALK_STEP_INTERVAL_MS = 950;
+const WALK_LOCK_SEQUENCE = 4;
+const MAX_CADENCE_VARIATION = 0.28;
 
 export function calculateMissionProgress(values) {
   const pushups = pct(values.pushups ?? 0, DAILY_TARGETS.pushups);
@@ -223,10 +226,37 @@ export function createStepTracker(initialSteps = 0) {
   return {
     steps: clamp(Math.round(initialSteps), 0, DAILY_TARGETS.steps),
     smoothMagnitude: null,
+    previousMagnitude: null,
+    lastPeakAt: null,
     lastStepAt: 0,
+    candidateStepTimes: [],
+    walkLocked: false,
     armed: true,
     progress: pct(initialSteps, DAILY_TARGETS.steps),
     quality: 'step-ready',
+  };
+}
+
+function hasStableWalkingCadence(times) {
+  if (times.length < WALK_LOCK_SEQUENCE) return false;
+  const intervals = times.slice(1).map((time, index) => time - times[index]);
+  if (intervals.some((interval) => interval < MIN_WALK_STEP_INTERVAL_MS || interval > MAX_WALK_STEP_INTERVAL_MS)) return false;
+
+  const average = intervals.reduce((sum, interval) => sum + interval, 0) / intervals.length;
+  return intervals.every((interval) => Math.abs(interval - average) / average <= MAX_CADENCE_VARIATION);
+}
+
+function resetWalkingCandidates(tracker, quality, smoothMagnitude, magnitude, pulse) {
+  return {
+    ...tracker,
+    smoothMagnitude,
+    previousMagnitude: magnitude,
+    candidateStepTimes: [],
+    walkLocked: false,
+    armed: pulse <= STEP_RESET_THRESHOLD ? true : false,
+    progress: pct(tracker.steps ?? 0, DAILY_TARGETS.steps),
+    quality,
+    pulse,
   };
 }
 
@@ -243,17 +273,51 @@ export function updateStepTracker(tracker, sample) {
   const previousSmooth = safeTracker.smoothMagnitude ?? magnitude;
   const smoothMagnitude = previousSmooth * 0.86 + magnitude * 0.14;
   const pulse = magnitude - smoothMagnitude;
-  const elapsed = safeTracker.lastStepAt ? timestamp - safeTracker.lastStepAt : MIN_STEP_INTERVAL_MS;
-  const canCount = safeTracker.armed && pulse >= STEP_THRESHOLD && elapsed >= MIN_STEP_INTERVAL_MS && elapsed <= MAX_STEP_INTERVAL_MS;
-  const shouldRearm = pulse <= STEP_RESET_THRESHOLD;
+  const previousMagnitude = safeTracker.previousMagnitude ?? magnitude;
+  const magnitudeJump = Math.abs(magnitude - previousMagnitude);
+  const stepInterval = safeTracker.lastPeakAt ? timestamp - safeTracker.lastPeakAt : null;
+  const armed = pulse <= STEP_RESET_THRESHOLD ? true : safeTracker.armed;
 
-  if (canCount) {
-    const steps = Math.min(DAILY_TARGETS.steps, (safeTracker.steps ?? 0) + 1);
+  if (pulse > MAX_SHAKE_PULSE || magnitudeJump > MAX_SHAKE_PULSE * 1.6) {
+    return resetWalkingCandidates(safeTracker, 'step-shake-rejected', smoothMagnitude, magnitude, pulse);
+  }
+
+  const isPeak = armed && pulse >= STEP_PEAK_THRESHOLD;
+  if (!isPeak) {
+    const waitingTooLong = safeTracker.lastPeakAt && timestamp - safeTracker.lastPeakAt > MAX_WALK_STEP_INTERVAL_MS;
+    return {
+      ...safeTracker,
+      smoothMagnitude,
+      previousMagnitude: magnitude,
+      candidateStepTimes: waitingTooLong ? [] : safeTracker.candidateStepTimes ?? [],
+      walkLocked: waitingTooLong ? false : safeTracker.walkLocked ?? false,
+      armed,
+      progress: pct(safeTracker.steps ?? 0, DAILY_TARGETS.steps),
+      quality: waitingTooLong ? 'step-waiting' : 'step-tracking',
+      pulse,
+    };
+  }
+
+  if (stepInterval !== null && (stepInterval < MIN_WALK_STEP_INTERVAL_MS || stepInterval > MAX_WALK_STEP_INTERVAL_MS)) {
+    return resetWalkingCandidates(safeTracker, 'step-shake-rejected', smoothMagnitude, magnitude, pulse);
+  }
+
+  const candidateStepTimes = [...(safeTracker.candidateStepTimes ?? []), timestamp].slice(-WALK_LOCK_SEQUENCE);
+  const wasLocked = safeTracker.walkLocked ?? false;
+  const cadenceLocked = wasLocked || hasStableWalkingCadence(candidateStepTimes);
+  const stepsToAdd = wasLocked ? 1 : cadenceLocked ? candidateStepTimes.length : 0;
+
+  if (stepsToAdd > 0) {
+    const steps = Math.min(DAILY_TARGETS.steps, (safeTracker.steps ?? 0) + stepsToAdd);
     return {
       ...safeTracker,
       steps,
       smoothMagnitude,
+      previousMagnitude: magnitude,
+      lastPeakAt: timestamp,
       lastStepAt: timestamp,
+      candidateStepTimes,
+      walkLocked: true,
       armed: false,
       progress: pct(steps, DAILY_TARGETS.steps),
       quality: 'step-counted',
@@ -264,9 +328,13 @@ export function updateStepTracker(tracker, sample) {
   return {
     ...safeTracker,
     smoothMagnitude,
-    armed: shouldRearm ? true : safeTracker.armed,
+    previousMagnitude: magnitude,
+    lastPeakAt: timestamp,
+    candidateStepTimes,
+    walkLocked: false,
+    armed: false,
     progress: pct(safeTracker.steps ?? 0, DAILY_TARGETS.steps),
-    quality: elapsed > MAX_STEP_INTERVAL_MS ? 'step-waiting' : 'step-tracking',
+    quality: 'step-seeking-cadence',
     pulse,
   };
 }
