@@ -79,10 +79,10 @@ describe('rep transition logic', () => {
     expect(state).toMatchObject({ phase: 'top', reps: 1, quality: 'clean' });
   });
 
-  it('counts a body squat from rear/front camera when hips drop even if 2D knee angle stays open', () => {
+  it('counts a body squat from rear/front camera when hips clearly drop even if 2D knee geometry is unreliable', () => {
     let state = { phase: 'top', reps: 0 };
     for (let i = 0; i < 2; i += 1) state = countRepTransition('squat', state, { kneeAngle: 168, hipBelowKnee: false, hipKneeGap: 0.5, hipY: 0.42, poseConfidence: 0.82 });
-    for (let i = 0; i < 2; i += 1) state = countRepTransition('squat', state, { kneeAngle: 142, hipBelowKnee: false, hipKneeGap: 0.13, hipY: 0.57, poseConfidence: 0.82 });
+    for (let i = 0; i < 2; i += 1) state = countRepTransition('squat', state, { kneeAngle: 148, hipBelowKnee: false, hipKneeGap: 0.3, hipY: 0.57, poseConfidence: 0.82 });
     expect(state).toMatchObject({ phase: 'bottom', reps: 0 });
     for (let i = 0; i < 2; i += 1) state = countRepTransition('squat', state, { kneeAngle: 158, hipBelowKnee: false, hipKneeGap: 0.46, hipY: 0.43, poseConfidence: 0.82 });
     expect(state).toMatchObject({ phase: 'top', reps: 1, quality: 'clean' });

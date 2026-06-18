@@ -124,8 +124,8 @@ function countSquat(state, pose) {
   const enoughVerticalDrop = !hasHipY || !hasStandingBaseline || hipDropFromStand >= 0.08;
   const hipsNearSquatDepth = pose.hipBelowKnee || hipKneeGap <= 0.18;
   const kneeBentFromSideView = pose.kneeAngle <= 125;
-  const clearVerticalSquat = hasHipY && hasStandingBaseline && hipDropFromStand >= 0.08 && hipsNearSquatDepth;
-  const bottom = hipsNearSquatDepth && enoughVerticalDrop && (kneeBentFromSideView || clearVerticalSquat);
+  const clearVerticalSquat = hasHipY && hasStandingBaseline && hipDropFromStand >= 0.1 && pose.kneeAngle <= 155;
+  const bottom = (hipsNearSquatDepth && enoughVerticalDrop && kneeBentFromSideView) || clearVerticalSquat;
 
   if (state.phase === 'top' && bottom) {
     return stableTransition({ ...state, squatTopHipY }, 'bottom', 'loaded', { stableFrames: SQUAT_STABLE_FRAMES });
