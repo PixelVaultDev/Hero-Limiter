@@ -591,6 +591,7 @@ function formatPoseStatus(exercise, state) {
   if (state.quality === 'weak-form') return 'Form check: keep your body straighter before counting.';
   if (state.quality === 'pushup-go-lower') return 'Push up tracking: bend lower so elbows clearly close.';
   if (state.quality === 'pushup-return-to-top') return 'Push up tracking: good depth. Push back near the top.';
+  if (state.quality === 'pushup-get-horizontal') return 'Push up tracking: get into a floor push-up side view first.';
   if (state.quality === 'squat-go-lower') return 'Squat tracking: lower hips closer to knee height.';
   if (state.quality === 'squat-stand-up') return 'Squat tracking: good depth. Stand tall to count.';
   if (state.quality === 'clean') return `${labelForExercise(exercise)} counted. Nice.`;

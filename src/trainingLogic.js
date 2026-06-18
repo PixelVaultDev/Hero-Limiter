@@ -92,7 +92,10 @@ function stableTransition(state, targetPhase, quality, { addRep = false, weakFor
 function countPushup(state, pose) {
   const bottom = pose.elbowAngle <= 120;
   const top = pose.elbowAngle >= 140;
+  const pushupReady = (pose.pushupLeanRatio ?? 0) <= 0.85;
   const weakForm = pose.hipDrop > 0.18;
+
+  if (!pushupReady) return resetCandidate(state, 'pushup-get-horizontal');
 
   if (state.phase === 'top' && bottom) {
     return stableTransition(state, 'bottom', weakForm ? 'weak-form' : 'loaded', { stableFrames: PUSHUP_STABLE_FRAMES });
@@ -225,10 +228,13 @@ export function landmarksToPoseMetrics(landmarks = [], exercise = 'all') {
   const torsoAngle = angleBetween(shoulderMid, hipMid, kneeMid);
   const hipBelowKnee = hipMid.y > kneeMid.y;
   const hipKneeGap = Math.max(0, kneeMid.y - hipMid.y);
-  const torsoSlope = Math.abs((hipMid.y ?? hip.y) - (shoulderMid.y ?? shoulder.y));
+  const shoulderHipDistance = Math.hypot((hipMid.x ?? hip.x) - (shoulderMid.x ?? shoulder.x), (hipMid.y ?? hip.y) - (shoulderMid.y ?? shoulder.y));
+  const shoulderHipVerticalGap = Math.abs((hipMid.y ?? hip.y) - (shoulderMid.y ?? shoulder.y));
+  const pushupLeanRatio = shoulderHipDistance ? shoulderHipVerticalGap / shoulderHipDistance : 1;
+  const torsoSlope = shoulderHipVerticalGap;
   const hipDrop = Math.max(0, torsoSlope - 0.35);
 
-  return { elbowAngle, kneeAngle, torsoAngle, hipBelowKnee, hipKneeGap, hipDrop, visible, poseConfidence: confidence };
+  return { elbowAngle, kneeAngle, torsoAngle, hipBelowKnee, hipKneeGap, pushupLeanRatio, hipDrop, visible, poseConfidence: confidence };
 }
 
 export function createStepTracker(initialSteps = 0) {

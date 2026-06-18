@@ -51,9 +51,16 @@ describe('rep transition logic', () => {
 
   it('rejects a pushup with sagging hips as a weak rep', () => {
     let state = { phase: 'top', reps: 0 };
-    for (let i = 0; i < 3; i += 1) state = countRepTransition('pushup', state, { elbowAngle: 70, hipDrop: 0.24, poseConfidence: 0.9 });
-    for (let i = 0; i < 3; i += 1) state = countRepTransition('pushup', state, { elbowAngle: 165, hipDrop: 0.22, poseConfidence: 0.9 });
+    for (let i = 0; i < 3; i += 1) state = countRepTransition('pushup', state, { elbowAngle: 70, hipDrop: 0.24, pushupLeanRatio: 0.25, poseConfidence: 0.9 });
+    for (let i = 0; i < 3; i += 1) state = countRepTransition('pushup', state, { elbowAngle: 165, hipDrop: 0.22, pushupLeanRatio: 0.25, poseConfidence: 0.9 });
     expect(state).toMatchObject({ phase: 'top', reps: 0, quality: 'weak-form' });
+  });
+
+  it('does not count standing arm bends as pushups', () => {
+    let state = { phase: 'top', reps: 0 };
+    for (let i = 0; i < 2; i += 1) state = countRepTransition('pushup', state, { elbowAngle: 95, hipDrop: 0.02, pushupLeanRatio: 0.92, poseConfidence: 0.9 });
+    for (let i = 0; i < 2; i += 1) state = countRepTransition('pushup', state, { elbowAngle: 150, hipDrop: 0.02, pushupLeanRatio: 0.92, poseConfidence: 0.9 });
+    expect(state).toMatchObject({ phase: 'top', reps: 0, quality: 'pushup-get-horizontal' });
   });
 
   it('counts one squat when hips reach depth then return standing', () => {
@@ -109,14 +116,27 @@ describe('rep transition logic', () => {
 
   it('does not require feet to be visible for pushup tracking', () => {
     const lm = Array.from({ length: 33 }, () => ({ x: 0, y: 0, visibility: 0 }));
-    lm[11] = { x: 0, y: 0, visibility: 0.4 };
-    lm[13] = { x: 1, y: 0, visibility: 0.4 };
-    lm[15] = { x: 1, y: 1, visibility: 0.4 };
-    lm[23] = { x: 0, y: 0.45, visibility: 0.4 };
+    lm[11] = { x: 0, y: 0.2, visibility: 0.4 };
+    lm[13] = { x: 0.45, y: 0.25, visibility: 0.4 };
+    lm[15] = { x: 0.8, y: 0.45, visibility: 0.4 };
+    lm[23] = { x: 0.7, y: 0.35, visibility: 0.4 };
     lm[25] = { x: 0, y: 0.8, visibility: 0 };
     lm[27] = { x: 0, y: 1.1, visibility: 0 };
-    expect(landmarksToPoseMetrics(lm, 'pushup').visible).toBe(true);
+    const metrics = landmarksToPoseMetrics(lm, 'pushup');
+    expect(metrics.visible).toBe(true);
+    expect(metrics.pushupLeanRatio).toBeLessThan(0.75);
     expect(landmarksToPoseMetrics(lm, 'squat').visible).toBe(false);
+  });
+
+  it('marks a vertical body position as not pushup-ready', () => {
+    const lm = Array.from({ length: 33 }, () => ({ x: 0, y: 0, visibility: 0 }));
+    lm[11] = { x: 0.45, y: 0.1, visibility: 0.9 };
+    lm[13] = { x: 0.2, y: 0.35, visibility: 0.9 };
+    lm[15] = { x: 0.2, y: 0.55, visibility: 0.9 };
+    lm[23] = { x: 0.48, y: 0.85, visibility: 0.9 };
+    const metrics = landmarksToPoseMetrics(lm, 'pushup');
+    expect(metrics.visible).toBe(true);
+    expect(metrics.pushupLeanRatio).toBeGreaterThan(0.85);
   });
 
   it('converts pose landmarks into forgiving squat depth metrics', () => {
