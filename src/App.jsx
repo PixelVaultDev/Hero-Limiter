@@ -605,8 +605,14 @@ function formatPoseStatus(exercise, state) {
   if (state.quality === 'pushup-go-lower') return 'Push up tracking: bend lower so elbows clearly close.';
   if (state.quality === 'pushup-return-to-top') return 'Push up tracking: good depth. Push back near the top.';
   if (state.quality === 'pushup-get-horizontal') return 'Push up tracking: get into a floor push-up side view first.';
-  if (state.quality === 'squat-go-lower') return 'Squat tracking: lower hips closer to knee height.';
-  if (state.quality === 'squat-stand-up') return 'Squat tracking: good depth. Stand tall to count.';
+  if (state.quality === 'squat-go-lower') {
+    const drop = Number.isFinite(state.squatHipDrop) ? ` Hip drop: ${Math.max(0, Math.round(state.squatHipDrop * 100))}%.` : '';
+    return `Squat tracking: lower hips, then stand tall.${drop}`;
+  }
+  if (state.quality === 'squat-stand-up') {
+    const drop = Number.isFinite(state.squatHipDrop) ? ` Hip drop: ${Math.max(0, Math.round(state.squatHipDrop * 100))}%.` : '';
+    return `Squat tracking: good depth. Stand tall to count.${drop}`;
+  }
   if (state.quality === 'clean') return `${labelForExercise(exercise)} counted. Nice.`;
   if (state.phase === 'bottom') return 'Good depth. Return to the top.';
   return 'Tracking movement…';

@@ -117,26 +117,31 @@ function countPushup(state, pose) {
 function countSquat(state, pose) {
   const hipKneeGap = pose.hipKneeGap ?? (pose.hipBelowKnee ? -0.01 : Infinity);
   const hasHipY = Number.isFinite(pose.hipY);
-  const top = pose.kneeAngle >= 150 && !pose.hipBelowKnee && hipKneeGap >= 0.24;
-  const squatTopHipY = top && hasHipY ? pose.hipY : state.squatTopHipY;
-  const hasStandingBaseline = Number.isFinite(squatTopHipY);
-  const hipDropFromStand = hasHipY && hasStandingBaseline ? pose.hipY - squatTopHipY : null;
-  const enoughVerticalDrop = !hasHipY || !hasStandingBaseline || hipDropFromStand >= 0.08;
-  const hipsNearSquatDepth = pose.hipBelowKnee || hipKneeGap <= 0.18;
-  const kneeBentFromSideView = pose.kneeAngle <= 125;
-  const clearVerticalSquat = hasHipY && hasStandingBaseline && hipDropFromStand >= 0.1 && pose.kneeAngle <= 155;
-  const bottom = (hipsNearSquatDepth && enoughVerticalDrop && kneeBentFromSideView) || clearVerticalSquat;
+  const legacyTop = pose.kneeAngle >= 150 && !pose.hipBelowKnee && hipKneeGap >= 0.24;
+  const legacyBottom = pose.kneeAngle <= 125 && (pose.hipBelowKnee || hipKneeGap <= 0.18);
+  const relaxedStanding = hasHipY && pose.kneeAngle >= 145 && !pose.hipBelowKnee;
+  const nextStandingBaseline = hasHipY && (!Number.isFinite(state.squatTopHipY) || (state.phase !== 'bottom' && relaxedStanding && pose.hipY < state.squatTopHipY))
+    ? pose.hipY
+    : state.squatTopHipY;
+  const hasStandingBaseline = Number.isFinite(nextStandingBaseline);
+  const hipDropFromStand = hasHipY && hasStandingBaseline ? pose.hipY - nextStandingBaseline : null;
+  const clearVerticalSquat = hasHipY && hasStandingBaseline && hipDropFromStand >= 0.08 && pose.kneeAngle <= 165;
+  const legacyDepthWithRealDrop = legacyBottom && (!hasHipY || !hasStandingBaseline || hipDropFromStand >= 0.08);
+  const returnedNearStanding = hasHipY && hasStandingBaseline && hipDropFromStand <= 0.05 && pose.kneeAngle >= 140;
+  const bottom = legacyDepthWithRealDrop || clearVerticalSquat;
+  const top = legacyTop || returnedNearStanding;
+  const squatState = { ...state, squatTopHipY: nextStandingBaseline, squatHipDrop: hipDropFromStand };
 
   if (state.phase === 'top' && bottom) {
-    return stableTransition({ ...state, squatTopHipY }, 'bottom', 'loaded', { stableFrames: SQUAT_STABLE_FRAMES });
+    return stableTransition(squatState, 'bottom', 'loaded', { stableFrames: SQUAT_STABLE_FRAMES });
   }
 
   if (state.phase === 'bottom' && top) {
-    return stableTransition({ ...state, squatTopHipY }, 'top', 'clean', { addRep: true, stableFrames: SQUAT_STABLE_FRAMES });
+    return stableTransition(squatState, 'top', 'clean', { addRep: true, stableFrames: SQUAT_STABLE_FRAMES });
   }
 
-  if (state.phase === 'bottom') return resetCandidate({ ...state, squatTopHipY }, 'squat-stand-up');
-  return resetCandidate({ ...state, squatTopHipY }, state.quality === 'clean' ? 'clean' : 'squat-go-lower');
+  if (state.phase === 'bottom') return resetCandidate(squatState, 'squat-stand-up');
+  return resetCandidate(squatState, state.quality === 'clean' ? 'clean' : 'squat-go-lower');
 }
 
 function countSitup(state, pose) {
