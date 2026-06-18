@@ -182,6 +182,9 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
   const motionListenerRef = useRef(null);
   const repStateRef = useRef({ phase: 'top', reps: 0, quality: 'ready' });
   const stepTrackerRef = useRef(createStepTracker());
+  const activeExerciseRef = useRef(activeExercise);
+  const activeMissionRef = useRef(activeMission);
+  const statsRef = useRef(stats);
   const voiceEnabledRef = useRef(false);
   const [cameraStatus, setCameraStatus] = useState('Camera off');
   const [poseStatus, setPoseStatus] = useState('Choose an exercise and start camera.');
@@ -291,8 +294,8 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
     window.speechSynthesis.speak(utterance);
   }
 
-  function speakRepCount(count) {
-    if (!voiceEnabledRef.current || activeExercise === 'steps') return;
+  function speakRepCount(count, exercise = activeExerciseRef.current) {
+    if (!voiceEnabledRef.current || exercise === 'steps') return;
     speakText(String(count));
     setVoiceStatus(`Counted ${count} out loud`);
   }
@@ -307,19 +310,20 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
 
     const result = detector.detectForVideo(video, performance.now());
     const landmarks = result?.landmarks?.[0];
-    if (landmarks) {
-      const metrics = landmarksToPoseMetrics(landmarks, activeExercise);
+    const currentExercise = activeExerciseRef.current;
+    if (landmarks && currentExercise !== 'steps') {
+      const metrics = landmarksToPoseMetrics(landmarks, currentExercise);
       const previousReps = repStateRef.current.reps;
-      const next = countRepTransition(activeExercise, repStateRef.current, metrics);
+      const next = countRepTransition(currentExercise, repStateRef.current, metrics);
       repStateRef.current = next;
-      setPoseStatus(formatPoseStatus(activeExercise, next));
+      setPoseStatus(formatPoseStatus(currentExercise, next));
       if (next.reps > previousReps) {
-        setRepFeedback(`${labelForExercise(activeExercise)} counted. Nice.`);
+        setRepFeedback(`${labelForExercise(currentExercise)} counted. Nice.`);
         triggerCounterPulse();
-        onRep(activeExercise);
-        speakRepCount(next.reps);
+        onRep(currentExercise);
+        speakRepCount(next.reps, currentExercise);
       }
-    } else {
+    } else if (!landmarks) {
       setPoseStatus('No body detected. Step back into frame.');
     }
 
@@ -381,9 +385,18 @@ function LiveTracker({ activeExercise, setActiveExercise, activeMission, stats, 
   }, []);
 
   useEffect(() => {
+    activeExerciseRef.current = activeExercise;
+    activeMissionRef.current = activeMission;
+    statsRef.current = stats;
+  }, [activeExercise, activeMission, stats]);
+
+  useEffect(() => {
     if (activeExercise !== 'steps') {
       const mission = exercises.find((item) => item.tracker === activeExercise);
+      activeExerciseRef.current = activeExercise;
+      activeMissionRef.current = mission;
       repStateRef.current = { phase: 'top', reps: stats[mission.key] ?? 0, quality: 'ready' };
+      if (isCameraOn) setPoseStatus(`Switched to ${mission.label}. Move through one full rep.`);
       setRepFeedback('Ready for clean reps.');
     }
   }, [activeExercise]);
