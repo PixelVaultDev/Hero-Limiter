@@ -70,12 +70,21 @@ describe('rep transition logic', () => {
     expect(state).toMatchObject({ phase: 'top', reps: 5, quality: 'clean' });
   });
 
-  it('counts a real-world squat when hips get near knee height without perfect camera depth', () => {
+  it('counts a real-world squat when hips drop from a standing baseline then rise', () => {
     let state = { phase: 'top', reps: 0 };
-    for (let i = 0; i < 2; i += 1) state = countRepTransition('squat', state, { kneeAngle: 122, hipBelowKnee: false, hipKneeGap: 0.12, poseConfidence: 0.82 });
+    for (let i = 0; i < 2; i += 1) state = countRepTransition('squat', state, { kneeAngle: 168, hipBelowKnee: false, hipKneeGap: 0.5, hipY: 0.42, poseConfidence: 0.82 });
+    for (let i = 0; i < 2; i += 1) state = countRepTransition('squat', state, { kneeAngle: 122, hipBelowKnee: false, hipKneeGap: 0.12, hipY: 0.58, poseConfidence: 0.82 });
     expect(state).toMatchObject({ phase: 'bottom', reps: 0 });
-    for (let i = 0; i < 2; i += 1) state = countRepTransition('squat', state, { kneeAngle: 152, hipBelowKnee: false, hipKneeGap: 0.48, poseConfidence: 0.82 });
+    for (let i = 0; i < 2; i += 1) state = countRepTransition('squat', state, { kneeAngle: 152, hipBelowKnee: false, hipKneeGap: 0.48, hipY: 0.43, poseConfidence: 0.82 });
     expect(state).toMatchObject({ phase: 'top', reps: 1, quality: 'clean' });
+  });
+
+  it('does not count walking toward the camera as squats', () => {
+    let state = { phase: 'top', reps: 0 };
+    for (let i = 0; i < 2; i += 1) state = countRepTransition('squat', state, { kneeAngle: 168, hipBelowKnee: false, hipKneeGap: 0.5, hipY: 0.45, poseConfidence: 0.9 });
+    for (let i = 0; i < 2; i += 1) state = countRepTransition('squat', state, { kneeAngle: 118, hipBelowKnee: false, hipKneeGap: 0.12, hipY: 0.48, poseConfidence: 0.9 });
+    for (let i = 0; i < 2; i += 1) state = countRepTransition('squat', state, { kneeAngle: 160, hipBelowKnee: false, hipKneeGap: 0.45, hipY: 0.46, poseConfidence: 0.9 });
+    expect(state).toMatchObject({ phase: 'top', reps: 0 });
   });
 
   it('does not count jogging-in-place knee lifts as squats', () => {

@@ -77,10 +77,11 @@ function stableTransition(state, targetPhase, quality, { addRep = false, weakFor
   }
 
   if (weakForm) {
-    return { phase: targetPhase, reps: state.reps, quality: 'weak-form', candidate: null, candidateFrames: 0 };
+    return { ...state, phase: targetPhase, reps: state.reps, quality: 'weak-form', candidate: null, candidateFrames: 0 };
   }
 
   return {
+    ...state,
     phase: targetPhase,
     reps: state.reps + (addRep ? 1 : 0),
     quality,
@@ -115,19 +116,24 @@ function countPushup(state, pose) {
 
 function countSquat(state, pose) {
   const hipKneeGap = pose.hipKneeGap ?? (pose.hipBelowKnee ? -0.01 : Infinity);
-  const bottom = pose.kneeAngle <= 125 && (pose.hipBelowKnee || hipKneeGap <= 0.18);
+  const hasHipY = Number.isFinite(pose.hipY);
   const top = pose.kneeAngle >= 150 && !pose.hipBelowKnee && hipKneeGap >= 0.24;
+  const squatTopHipY = top && hasHipY ? pose.hipY : state.squatTopHipY;
+  const hasStandingBaseline = Number.isFinite(squatTopHipY);
+  const hipDropFromStand = hasHipY && hasStandingBaseline ? pose.hipY - squatTopHipY : null;
+  const enoughVerticalDrop = !hasHipY || !hasStandingBaseline || hipDropFromStand >= 0.08;
+  const bottom = pose.kneeAngle <= 125 && (pose.hipBelowKnee || hipKneeGap <= 0.18) && enoughVerticalDrop;
 
   if (state.phase === 'top' && bottom) {
-    return stableTransition(state, 'bottom', 'loaded', { stableFrames: SQUAT_STABLE_FRAMES });
+    return stableTransition({ ...state, squatTopHipY }, 'bottom', 'loaded', { stableFrames: SQUAT_STABLE_FRAMES });
   }
 
   if (state.phase === 'bottom' && top) {
-    return stableTransition(state, 'top', 'clean', { addRep: true, stableFrames: SQUAT_STABLE_FRAMES });
+    return stableTransition({ ...state, squatTopHipY }, 'top', 'clean', { addRep: true, stableFrames: SQUAT_STABLE_FRAMES });
   }
 
-  if (state.phase === 'bottom') return resetCandidate(state, 'squat-stand-up');
-  return resetCandidate(state, state.quality === 'clean' ? 'clean' : 'squat-go-lower');
+  if (state.phase === 'bottom') return resetCandidate({ ...state, squatTopHipY }, 'squat-stand-up');
+  return resetCandidate({ ...state, squatTopHipY }, state.quality === 'clean' ? 'clean' : 'squat-go-lower');
 }
 
 function countSitup(state, pose) {
@@ -234,7 +240,7 @@ export function landmarksToPoseMetrics(landmarks = [], exercise = 'all') {
   const torsoSlope = shoulderHipVerticalGap;
   const hipDrop = Math.max(0, torsoSlope - 0.35);
 
-  return { elbowAngle, kneeAngle, torsoAngle, hipBelowKnee, hipKneeGap, pushupLeanRatio, hipDrop, visible, poseConfidence: confidence };
+  return { elbowAngle, kneeAngle, torsoAngle, hipBelowKnee, hipKneeGap, hipY: hipMid.y ?? hip.y, pushupLeanRatio, hipDrop, visible, poseConfidence: confidence };
 }
 
 export function createStepTracker(initialSteps = 0) {
